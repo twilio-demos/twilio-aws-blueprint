@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+pydantic
+boto3
+websockets
+twilio
+python-dotenv
+python-multipart
