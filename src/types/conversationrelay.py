@@ -8,6 +8,7 @@ class CallType(str, Enum):
     PSTN = "PSTN"
     SIP = "SIP"
     CLIENT = "CLIENT"
+    PUBLIC_SIP = "PUBLIC_SIP"
 
 class Direction(str, Enum):
     INBOUND = "inbound"
