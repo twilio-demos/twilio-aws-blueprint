@@ -19,7 +19,7 @@ class ConversationRelayHandler:
         """Handle setup message from Twilio"""
         self.session_id = message.sessionId
         self.call_sid = message.callSid
-        self.dtmf_buffer.set_session(self.session_id)
+        self.dtmf_buffer.session_id = self.session_id
         
         logger.info("ConversationRelay session setup", {
             "sessionId": message.sessionId,

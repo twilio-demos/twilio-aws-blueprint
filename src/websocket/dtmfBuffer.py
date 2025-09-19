@@ -16,9 +16,6 @@ class DtmfBuffer:
         self.max_digits = 5
         self.timeout = 3
     
-    def set_session(self, session_id: str):
-        self.session_id = session_id
-    
     async def flush(self, callback: Callable[[str], Awaitable[None]]):
         logger.info("Returning buffered DTMF", {
             "sessionId": self.session_id,
