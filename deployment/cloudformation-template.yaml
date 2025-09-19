@@ -1,0 +1,414 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Twilio ConversationRelay Voice Agent on AWS Fargate"
+
+Conditions:
+  HasSSL: !Not [!Equals [!Ref CertificateArn, ""]]
+  HasDomain: !Not [!Equals [!Ref DomainName, ""]]
+
+Parameters:
+  ServiceName:
+    Type: String
+    Default: twilio-conversation-relay
+    Description: Name of the service
+
+  ContainerPort:
+    Type: Number
+    Default: 8000
+    Description: Port on which the container listens
+
+  DesiredCount:
+    Type: Number
+    Default: 2
+    Description: Number of tasks to run
+
+  TwilioAccountSid:
+    Type: String
+    Description: Twilio Account SID
+    NoEcho: true
+
+  TwilioAuthToken:
+    Type: String
+    Description: Twilio Auth Token
+    NoEcho: true
+
+  DomainName:
+    Type: String
+    Description: Domain name for the service (e.g., api.yourdomain.com)
+    Default: ""
+
+  CertificateArn:
+    Type: String
+    Description: ARN of the SSL certificate in ACM (leave empty to create HTTP-only ALB)
+    Default: ""
+
+  Environment:
+    Type: String
+    Default: prod
+    AllowedValues: [dev, staging, prod]
+    Description: Environment name
+
+Resources:
+  # VPC and Networking
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-vpc
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-public-subnet-1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      CidrBlock: 10.0.2.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-public-subnet-2
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-igw
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-public-rt
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet2
+
+  # Security Groups
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Application Load Balancer
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-alb-sg
+
+  TaskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ECS tasks
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref ContainerPort
+          ToPort: !Ref ContainerPort
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub ${ServiceName}-task-sg
+
+  # Application Load Balancer
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${ServiceName}-alb
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+      Scheme: internet-facing
+      Type: application
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${ServiceName}-tg
+      Port: !Ref ContainerPort
+      Protocol: HTTP
+      VpcId: !Ref VPC
+      TargetType: ip
+      HealthCheckPath: /
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 5
+
+  # Load Balancer Listeners
+  HTTPListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - !If
+          - HasSSL
+          - Type: redirect
+            RedirectConfig:
+              Protocol: HTTPS
+              Port: 443
+              StatusCode: HTTP_301
+          - Type: forward
+            TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  HTTPSListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: HasSSL
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref CertificateArn
+
+  # ECS Cluster
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub ${ServiceName}-cluster
+      CapacityProviders:
+        - FARGATE
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 1
+
+  # ECS Task Definition
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Ref ServiceName
+      Cpu: 512
+      Memory: 1024
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !Ref TaskExecutionRole
+      TaskRoleArn: !Ref TaskRole
+      ContainerDefinitions:
+        - Name: !Ref ServiceName
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ServiceName}:latest
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+              Protocol: tcp
+          Environment:
+            - Name: ENVIRONMENT
+              Value: !Ref Environment
+            - Name: PORT
+              Value: !Ref ContainerPort
+            - Name: LOG_LEVEL
+              Value: info
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+            - Name: EXTERNAL_URL
+              Value: !If
+                - HasDomain
+                - !Sub https://${DomainName}
+                - !If
+                  - HasSSL
+                  - !Sub https://${LoadBalancer.DNSName}
+                  - !Sub http://${LoadBalancer.DNSName}
+          Secrets:
+            - Name: TWILIO_ACCOUNT_SID
+              ValueFrom: !Ref TwilioAccountSidParameter
+            - Name: TWILIO_AUTH_TOKEN
+              ValueFrom: !Ref TwilioAuthTokenParameter
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+
+  # ECS Service
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn: HTTPListener
+    Properties:
+      ServiceName: !Ref ServiceName
+      Cluster: !Ref ECSCluster
+      LaunchType: FARGATE
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 50
+      DesiredCount: !Ref DesiredCount
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - !Ref TaskSecurityGroup
+          Subnets:
+            - !Ref PublicSubnet1
+            - !Ref PublicSubnet2
+      TaskDefinition: !Ref TaskDefinition
+      LoadBalancers:
+        - ContainerName: !Ref ServiceName
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref TargetGroup
+
+  # IAM Roles
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: GetSecrets
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameters
+                  - ssm:GetParameter
+                  - secretsmanager:GetSecretValue
+                Resource: "*"
+
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CloudWatchLogs
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  # CloudWatch Log Group
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /ecs/${ServiceName}
+      RetentionInDays: 30
+
+  # Systems Manager Parameters for secrets
+  TwilioAccountSidParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /${ServiceName}/twilio/account-sid-v2
+      Type: String
+      Value: !Ref TwilioAccountSid
+      Description: Twilio Account SID
+
+  TwilioAuthTokenParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /${ServiceName}/twilio/auth-token-v2
+      Type: String
+      Value: !Ref TwilioAuthToken
+      Description: Twilio Auth Token
+
+Outputs:
+  LoadBalancerDNS:
+    Description: DNS name of the load balancer
+    Value: !GetAtt LoadBalancer.DNSName
+    Export:
+      Name: !Sub ${AWS::StackName}-LoadBalancerDNS
+
+  ECRRepository:
+    Description: ECR Repository URI
+    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ServiceName}
+    Export:
+      Name: !Sub ${AWS::StackName}-ECRRepository
+
+  ServiceURL:
+    Description: URL of the service
+    Value: !If
+      - HasSSL
+      - !If
+        - HasDomain
+        - !Sub https://${DomainName}
+        - !Sub https://${LoadBalancer.DNSName}
+      - !Sub http://${LoadBalancer.DNSName}
+    Export:
+      Name: !Sub ${AWS::StackName}-ServiceURL
+
+  TwilioWebhookURL:
+    Description: Twilio webhook URL for TwiML
+    Value: !If
+      - HasSSL
+      - !If
+        - HasDomain
+        - !Sub https://${DomainName}/call/twiml
+        - !Sub https://${LoadBalancer.DNSName}/call/twiml
+      - !Sub http://${LoadBalancer.DNSName}/call/twiml
+    Export:
+      Name: !Sub ${AWS::StackName}-TwilioWebhookURL
+
+  WebSocketURL:
+    Description: WebSocket URL for ConversationRelay
+    Value: !If
+      - HasSSL
+      - !If
+        - HasDomain
+        - !Sub wss://${DomainName}/ws
+        - !Sub wss://${LoadBalancer.DNSName}/ws
+      - !Sub ws://${LoadBalancer.DNSName}/ws
+    Export:
+      Name: !Sub ${AWS::StackName}-WebSocketURL

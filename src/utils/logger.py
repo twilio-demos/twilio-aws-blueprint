@@ -3,7 +3,7 @@ import json
 import sys
 from datetime import datetime
 from typing import Any, Dict
-from src.utils.env import LOG_LEVEL, NODE_ENV
+from src.utils.env import LOG_LEVEL, ENVIRONMENT
 
 class JSONFormatter(logging.Formatter):
     """Custom JSON formatter for structured logging"""
@@ -49,7 +49,7 @@ class StructuredLogger:
         handler = logging.StreamHandler(sys.stdout)
         
         # Use JSON formatter for production, simple formatter for development
-        if NODE_ENV == 'production':
+        if ENVIRONMENT == 'production':
             formatter = JSONFormatter()
         else:
             formatter = logging.Formatter(
@@ -64,7 +64,7 @@ class StructuredLogger:
     
     def _log(self, level: str, message: str, extra_data: Dict[str, Any] = None):
         """Internal logging method with structured data"""
-        if NODE_ENV == 'production':
+        if ENVIRONMENT == 'production':
             # Use structured logging for production
             record = self.logger.makeRecord(
                 self.logger.name,

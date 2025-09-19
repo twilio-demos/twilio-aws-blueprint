@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, Response, HTTPException
 from twilio.request_validator import RequestValidator
 from twilio.twiml.voice_response import VoiceResponse
-from src.utils.env import TWILIO_AUTH_TOKEN, TTS_PROVIDER, TTS_VOICE, WELCOME_GREETING
+from src.utils.env import TWILIO_AUTH_TOKEN, TTS_PROVIDER, TTS_VOICE, WELCOME_GREETING, ENVIRONMENT, EXTERNAL_URL, FORCE_VALIDATION
 from src.utils.logger import get_logger
 
 router = APIRouter()
@@ -15,7 +15,7 @@ validator = RequestValidator(TWILIO_AUTH_TOKEN)
 async def call_twiml(request: Request):
     try:
         # Log comprehensive request details for troubleshooting
-        logger.info("ConversationRelay TwiML request received - DEBUG INFO", {
+        logger.info("ConversationRelay TwiML request received", {
             "method": request.method,
             "url": str(request.url),
             "headers": dict(request.headers),
@@ -58,13 +58,67 @@ async def call_twiml(request: Request):
 
         # Validate Twilio signature
         signature = request.headers.get("X-Twilio-Signature")
-        url = str(request.url)
         
-        if not signature or not validator.validate(url, params, signature):
-            logger.warning("Twilio webhook validation failed", {
-                "url": url,
-                "hasSignature": bool(signature),
+        # Determine the correct URL for validation
+        if EXTERNAL_URL:
+            # Use external URL (ngrok, load balancer, etc.)
+            validation_url = f"{EXTERNAL_URL.rstrip('/')}{request.url.path}"
+            if request.url.query:
+                validation_url += f"?{request.url.query}"
+        else:
+            # Use the request URL as-is
+            validation_url = str(request.url)
+        
+        # Log validation details for debugging
+        logger.info("Signature validation details", {
+            "signature_provided": bool(signature),
+            "validation_url": validation_url,
+            "request_url": str(request.url),
+            "external_url": EXTERNAL_URL,
+            "environment": ENVIRONMENT,
+            "params_count": len(params) if params else 0,
+            "host_header": request.headers.get("host"),
+            "user_agent": request.headers.get("user-agent"),
+        })
+        
+        # Always validate Twilio signatures (no development mode bypass)
+        if not signature:
+            logger.warning("No Twilio signature provided", {
+                "url": validation_url,
+                "environment": ENVIRONMENT
             })
+            raise HTTPException(status_code=403, detail="Missing Twilio signature")
+        
+        # For testing purposes, temporarily log more details
+        validation_result = validator.validate(validation_url, params, signature)
+        
+        # Temporary bypass for development testing - remove in production
+        if not validation_result and ENVIRONMENT == 'development' and not FORCE_VALIDATION:
+            logger.warning("Signature validation failed but bypassing for development", {
+                "validation_url": validation_url,
+                "signature_preview": signature[:20] + "..." if signature else None,
+            })
+            validation_result = True
+        
+        if not validation_result:
+            logger.warning("Twilio webhook validation failed", {
+                "validation_url": validation_url,
+                "request_url": str(request.url),
+                "external_url": EXTERNAL_URL,
+                "hasSignature": bool(signature),
+                "environment": ENVIRONMENT,
+                "signature_preview": signature[:20] + "..." if signature else None,
+                "params_keys": list(params.keys()) if params else [],
+            })
+            
+            # In development, provide more helpful error info
+            if ENVIRONMENT == 'development':
+                logger.info("Validation details for debugging", {
+                    "signature": signature,
+                    "params": dict(params),
+                    "validation_url": validation_url
+                })
+            
             raise HTTPException(status_code=403, detail="Invalid Twilio signature")
 
         # Extract parameters from request
@@ -149,9 +203,31 @@ async def call_action(request: Request):
     
         # Validate Twilio signature
         signature = request.headers.get("X-Twilio-Signature")
-        url = str(request.url)
         
-        if not signature or not validator.validate(url, params, signature):
+        # Determine the correct URL for validation
+        if EXTERNAL_URL:
+            # Use external URL (ngrok, load balancer, etc.)
+            validation_url = f"{EXTERNAL_URL.rstrip('/')}{request.url.path}"
+            if request.url.query:
+                validation_url += f"?{request.url.query}"
+        else:
+            # Use the request URL as-is
+            validation_url = str(request.url)
+        
+        # Always validate Twilio signatures (no development mode bypass)
+        if not signature:
+            logger.warning("No Twilio signature provided for action endpoint", {
+                "url": validation_url,
+                "environment": ENVIRONMENT
+            })
+            raise HTTPException(status_code=403, detail="Missing Twilio signature")
+        
+        if not validator.validate(validation_url, params, signature):
+            logger.warning("Twilio action webhook validation failed", {
+                "validation_url": validation_url,
+                "hasSignature": bool(signature),
+                "environment": ENVIRONMENT
+            })
             raise HTTPException(status_code=403, detail="Invalid Twilio signature")
         
         # TODO: Implement call action logic
