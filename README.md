@@ -102,72 +102,6 @@ requirements.txt                 # Python dependencies
 
 ## Production Deployment on AWS
 
-### Option 1: Quick Deployment (HTTP Only)
-
-For development or testing without SSL:
-
-```bash
-./deployment/deploy.sh
-```
-
-Required environment variables:
-
-- `TWILIO_ACCOUNT_SID`: Your Twilio Account SID
-- `TWILIO_AUTH_TOKEN`: Your Twilio Auth Token
-
-### Option 2: Production Deployment with SSL/TLS
-
-For production Twilio webhooks (HTTPS required):
-
-#### Step 1: Setup SSL Certificate
-
-**Option A: AWS Certificate Manager (ACM)**
-
-```bash
-# Request a certificate for your domain
-aws acm request-certificate
-  --domain-name api.yourdomain.com
-  --validation-method DNS
-  --region us-east-1
-
-# Note the certificate ARN from the output
-```
-
-**Option B: Import existing certificate**
-
-```bash
-aws acm import-certificate
-  --certificate file://certificate.pem
-  --private-key file://private-key.pem
-  --certificate-chain file://certificate-chain.pem
-  --region us-east-1
-```
-
-#### Step 2: Deploy with SSL
-
-```bash
-export TWILIO_ACCOUNT_SID="your-account-sid"
-export TWILIO_AUTH_TOKEN="your-auth-token"
-export CERTIFICATE_ARN="arn:aws:acm:region:account:certificate/certificate-id"
-export DOMAIN_NAME="api.yourdomain.com"  # Optional
-
-./deployment/deploy.sh
-```
-
-#### Step 3: DNS Configuration
-
-Point your domain to the load balancer:
-
-```bash
-# Get the load balancer DNS name
-aws cloudformation describe-stacks
-  --stack-name twilio-conversation-relay
-  --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDNS`].OutputValue'
-  --output text
-
-# Create CNAME record: api.yourdomain.com → alb-dns-name
-```
-
 ## Environment Variables
 
 ### Required for Production
@@ -213,23 +147,6 @@ In your Twilio Console, set:
 
 ## Monitoring and Debugging
 
-### CloudWatch Logs
-
-```bash
-# View application logs
-aws logs tail /ecs/twilio-conversation-relay --follow
-```
-
-### Environment Management
-
-Use `src/utils/env.py` for configuration:
-
-```python
-from src/utils/env import get_env_var
-
-api_key = get_env_var("CUSTOM_API_KEY", required=True)
-```
-
 ## Security
 
 ### Webhook Validation
@@ -238,62 +155,6 @@ All Twilio webhooks are validated using request signatures:
 
 - HTTP webhooks: Automatic validation in middleware
 - WebSocket connections: Signature validation during handshake
-
-### AWS Security
-
-- ECS tasks run with minimal IAM permissions
-- Secrets stored in Systems Manager Parameter Store
-- Security groups restrict network access
-- Container runs as non-root user
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Webhook validation failures**:
-
-   ```bash
-   # Check Twilio signature validation
-   curl -X POST https://api.yourdomain.com/call/twiml
-     -H "X-Twilio-Signature: invalid"
-     -d "test=data"
-   # Should return 403 Forbidden
-   ```
-
-2. **WebSocket connection issues**:
-
-   ```bash
-   # Test WebSocket endpoint
-   wscat -c wss://api.yourdomain.com/ws
-   ```
-
-3. **Container startup issues**:
-   ```bash
-   # Check ECS task logs
-   aws logs tail /ecs/twilio-conversation-relay --follow
-   ```
-
-### Deployment Issues
-
-1. **SSL certificate problems**:
-
-   ```bash
-   # Verify certificate status
-   aws acm describe-certificate --certificate-arn your-cert-arn
-   ```
-
-2. **Load balancer health checks**:
-   ```bash
-   # Check target group health
-   aws elbv2 describe-target-health --target-group-arn your-tg-arn
-   ```
-
-### Optimization Tips
-
-1. **Right-size containers**: Monitor CPU/memory usage
-2. **Use Spot capacity**: For non-critical workloads
-3. **Scale based on demand**: Configure auto-scaling policies
-4. **Optimize logs retention**: Set appropriate CloudWatch retention
 
 ## License
 
