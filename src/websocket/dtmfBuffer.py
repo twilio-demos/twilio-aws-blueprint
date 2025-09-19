@@ -21,7 +21,10 @@ class DtmfBuffer:
             "sessionId": self.session_id,
             "digits": self.buffer
         })
-        await callback(self.buffer)
+        try:
+            await callback(self.buffer)
+        except Exception as error:
+            logger.error("Error in DTMF callback", {"error": str(error)})
         self.buffer = ''
     
     async def handle_input(self, digit: str, callback: Callable[[str], Awaitable[None]]):
