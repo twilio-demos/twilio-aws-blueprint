@@ -1,6 +1,7 @@
 import asyncio
 import math
 from typing import Awaitable, Callable
+
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -10,9 +11,9 @@ class IdleMinder:
     """Waits for the session to become idle and invokes an action to remind the user."""
 
     def __init__(self, idle_callback: Callable[[bool], Awaitable[None]]):
-        self.session_id: str = None
+        self.session_id: str | None = None
         self.attempts = 0
-        self.timer_handle: asyncio.TimerHandle = None
+        self.timer_handle: asyncio.TimerHandle | None = None
         self.idle_callback: Callable = idle_callback
 
         # TODO: Pull params from session

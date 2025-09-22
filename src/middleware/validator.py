@@ -2,7 +2,8 @@ from fastapi import FastAPI, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from twilio.request_validator import RequestValidator
-from src.utils.env import TWILIO_AUTH_TOKEN, ENVIRONMENT, EXTERNAL_URL, FORCE_VALIDATION
+
+from src.utils.env import ENVIRONMENT, EXTERNAL_URL, FORCE_VALIDATION, TWILIO_AUTH_TOKEN
 from src.utils.logger import get_logger
 
 app = FastAPI()

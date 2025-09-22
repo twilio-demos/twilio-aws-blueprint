@@ -1,9 +1,10 @@
-import logging
 import json
+import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
-from src.utils.env import LOG_LEVEL, ENVIRONMENT
+
+from src.utils.env import ENVIRONMENT, LOG_LEVEL
 
 
 class JSONFormatter(logging.Formatter):
@@ -11,7 +12,7 @@ class JSONFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         log_entry = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -64,7 +65,7 @@ class StructuredLogger:
         # Prevent propagation to avoid duplicate logs
         self.logger.propagate = False
 
-    def _log(self, level: str, message: str, extra_data: Dict[str, Any] = None):
+    def _log(self, level: str, message: str, extra_data: Dict[str, Any] | None = None):
         """Internal logging method with structured data"""
         if ENVIRONMENT == "production":
             # Use structured logging for production
@@ -91,19 +92,19 @@ class StructuredLogger:
 
             getattr(self.logger, level.lower())(formatted_message)
 
-    def info(self, message: str, extra_data: Dict[str, Any] = None):
+    def info(self, message: str, extra_data: Dict[str, Any] | None = None):
         """Log info level message"""
         self._log("info", message, extra_data)
 
-    def warning(self, message: str, extra_data: Dict[str, Any] = None):
+    def warning(self, message: str, extra_data: Dict[str, Any] | None = None):
         """Log warning level message"""
         self._log("warning", message, extra_data)
 
-    def error(self, message: str, extra_data: Dict[str, Any] = None):
+    def error(self, message: str, extra_data: Dict[str, Any] | None = None):
         """Log error level message"""
         self._log("error", message, extra_data)
 
-    def debug(self, message: str, extra_data: Dict[str, Any] = None):
+    def debug(self, message: str, extra_data: Dict[str, Any] | None = None):
         """Log debug level message"""
         self._log("debug", message, extra_data)
 

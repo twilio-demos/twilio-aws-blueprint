@@ -1,16 +1,19 @@
+import json
+
 from fastapi import WebSocket
+
 from src.types.conversationrelay import (
-    OutgoingMessage,
-    TextTokenMessage,
-    SetupMessage,
-    PromptMessage,
     DTMFMessage,
-    InterruptMessage,
     ErrorMessage,
+    InterruptMessage,
+    OutgoingMessage,
+    PromptMessage,
+    SetupMessage,
+    TextTokenMessage,
 )
 from src.utils.env import WELCOME_GREETING
 from src.utils.logger import get_logger
-import json
+
 from .dtmfBuffer import DtmfBuffer
 from .idleMinder import IdleMinder
 
@@ -22,8 +25,8 @@ class ConversationRelayHandler:
 
     def __init__(self, websocket: WebSocket):
         self.websocket = websocket
-        self.session_id: str = None
-        self.call_sid: str = None
+        self.session_id: str | None = None
+        self.call_sid: str | None = None
         self.dtmf_buffer = DtmfBuffer()
         self.idle_minder = IdleMinder(self.handle_idle)
 
@@ -58,7 +61,7 @@ class ConversationRelayHandler:
             },
         )
 
-        self.idle_minder.handle_activity(False, WELCOME_GREETING)
+        self.idle_minder.handle_activity(False, WELCOME_GREETING or "")
 
         # TODO: If resume_session_id present, check that call_sid did not change, and copy session.
 

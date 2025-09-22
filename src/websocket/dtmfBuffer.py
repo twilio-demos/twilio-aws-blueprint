@@ -1,5 +1,6 @@
 import asyncio
 from typing import Awaitable, Callable
+
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -9,9 +10,9 @@ class DtmfBuffer:
     """Buffers DTMF digits received and flushes them per session configuration"""
 
     def __init__(self):
-        self.session_id: str = None
+        self.session_id: str | None = None
         self.buffer: str = ""
-        self.timer_handle: asyncio.TimerHandle = None
+        self.timer_handle: asyncio.TimerHandle | None = None
 
         # TODO: Pull params from session
         self.max_digits = 5

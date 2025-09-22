@@ -1,4 +1,5 @@
 from twilio.twiml.voice_response import VoiceResponse
+
 from src.utils.env import TTS_PROVIDER, TTS_VOICE
 from src.utils.logger import get_logger
 
@@ -6,7 +7,7 @@ logger = get_logger(__name__)
 
 
 def create_initial_twiml(
-    action_url: str, host: str, welcome_greeting: str, params: dict
+    action_url: str | None, host: str | None, welcome_greeting: str, params: dict
 ):
     # Create TwiML response using Twilio SDK
     response = VoiceResponse()

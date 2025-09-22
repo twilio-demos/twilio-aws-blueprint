@@ -1,12 +1,14 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from twilio.request_validator import RequestValidator
+
 from src.utils.env import (
-    TWILIO_AUTH_TOKEN,
     ENVIRONMENT,
     EXTERNAL_URL,
     FORCE_VALIDATION,
+    TWILIO_AUTH_TOKEN,
 )
 from src.utils.logger import get_logger
+
 from .conversationRelayHandler import ConversationRelayHandler
 
 router = APIRouter()
@@ -42,8 +44,9 @@ def _construct_validation_urls(websocket: WebSocket, headers: dict) -> list[str]
         urls.append(primary_url)
 
         # Fallback: try without port for standard ports (443 for wss, 80 for ws)
-        if (ws_scheme == "wss" and ":443" in host_with_port) or (
-            ws_scheme == "ws" and ":80" in host_with_port
+        if host_with_port is not None and (
+            (ws_scheme == "wss" and ":443" in host_with_port)
+            or (ws_scheme == "ws" and ":80" in host_with_port)
         ):
             fallback_url = f"{ws_scheme}://{host_with_port.replace(':443', '').replace(':80', '')}{websocket.url.path}"
             if fallback_url != primary_url:
