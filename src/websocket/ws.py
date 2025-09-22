@@ -145,6 +145,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 "sessionId": handler.session_id,
                 "callSid": handler.call_sid
             })
+            handler.process_disconnect()
         except Exception as e:
             logger.error("WebSocket error", {
                 "sessionId": handler.session_id,

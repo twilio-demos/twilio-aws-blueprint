@@ -92,7 +92,10 @@ async def call_action(request: Request):
             
             # Create ConversationRelay twiml again to resume the session
             # Leave out the welcome message for a seamless experience
-            twiml_response = create_initial_twiml(action_url, host, "", { "resume_session_id": session_id })
+            twiml_response = create_initial_twiml(action_url, host, "", {
+                "resume_session_id": session_id,
+                "resume_call_sid": call_sid
+            })
             
             logger.info("ConversationRelay reconnect TwiML response generated", {
                 "CallSid": call_sid,

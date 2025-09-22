@@ -1,8 +1,10 @@
 from fastapi import WebSocket
 from src.types.conversationrelay import IncomingMessage, OutgoingMessage, TextTokenMessage, SetupMessage, PromptMessage, DTMFMessage, InterruptMessage, ErrorMessage
+from src.utils.env import WELCOME_GREETING
 from src.utils.logger import get_logger
 import json
 from .dtmfBuffer import DtmfBuffer
+from .idleMinder import IdleMinder
 
 logger = get_logger(__name__)
 
@@ -14,12 +16,30 @@ class ConversationRelayHandler:
         self.session_id: str = None
         self.call_sid: str = None
         self.dtmf_buffer = DtmfBuffer()
+        self.idle_minder = IdleMinder(self.handle_idle)
+    
+    async def handle_idle(self, reached_max_attempts: bool):
+        if reached_max_attempts:
+            # TODO: Update call with new twiml.
+            logger.info("TODO: Should end call now.")
+            return
+        
+        # TODO: This response should be configurable.
+        idle_response = "I'm still here, let me know when you are ready to continue."
+        response = TextTokenMessage(
+            type="text",
+            token=idle_response,
+            last=True
+        )
+        await self.send_message(response)
+        self.idle_minder.handle_activity(True, idle_response)
     
     async def handle_setup_message(self, message: SetupMessage):
         """Handle setup message from Twilio"""
         self.session_id = message.sessionId
         self.call_sid = message.callSid
         self.dtmf_buffer.session_id = self.session_id
+        self.idle_minder.session_id = self.session_id
         
         logger.info("ConversationRelay session setup", {
             "sessionId": message.sessionId,
@@ -29,6 +49,10 @@ class ConversationRelayHandler:
             "direction": message.direction,
             "callType": message.callType
         })
+        
+        self.idle_minder.handle_activity(False, WELCOME_GREETING)
+        
+        # TODO: If resume_session_id present, check that call_sid did not change, and copy session.
         
         # TODO: Initialize AI agent session
         # TODO: Send welcome message if needed
@@ -42,16 +66,21 @@ class ConversationRelayHandler:
             "last": message.last
         })
         
+        self.idle_minder.handle_activity()
+        
         # TODO: Process with AI agent
         # TODO: Generate response
         
         # Example response - replace with AI processing
+        sampleResponse = "I heard you say: " + message.voicePrompt
         response = TextTokenMessage(
             type="text",
-            token="I heard you say: " + message.voicePrompt,
+            token=sampleResponse,
             last=True
         )
         await self.send_message(response)
+        
+        self.idle_minder.handle_activity(False, sampleResponse)
     
     async def handle_dtmf_message(self, message: DTMFMessage):
         """Handle DTMF digit from caller"""
@@ -71,6 +100,8 @@ class ConversationRelayHandler:
             await self.send_message(response)
         
         await self.dtmf_buffer.handle_input(message.digit, handle_dtmf_flush)
+        
+        self.idle_minder.handle_activity()
     
     async def handle_interrupt_message(self, message: InterruptMessage):
         """Handle caller interruption"""
@@ -79,6 +110,8 @@ class ConversationRelayHandler:
             "utteranceUntilInterrupt": message.utteranceUntilInterrupt,
             "durationMs": message.durationUntilInterruptMs
         })
+        
+        self.idle_minder.handle_activity()
         
         # TODO: Stop current AI processing
         # TODO: Handle interruption gracefully
@@ -103,6 +136,9 @@ class ConversationRelayHandler:
             "messageType": message.type,
             "message": message_json
         })
+    
+    def process_disconnect(self):
+        self.idle_minder.clear()
     
     async def process_message(self, raw_message: str):
         """Process incoming message from Twilio"""
