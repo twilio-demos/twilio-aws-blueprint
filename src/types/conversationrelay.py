@@ -4,21 +4,25 @@ from enum import Enum
 
 # Incoming Message Types from Twilio
 
+
 class CallType(str, Enum):
     PSTN = "PSTN"
     SIP = "SIP"
     CLIENT = "CLIENT"
     PUBLIC_SIP = "PUBLIC_SIP"
 
+
 class Direction(str, Enum):
     INBOUND = "inbound"
     OUTBOUND = "outbound"
+
 
 class CallStatus(str, Enum):
     RINGING = "RINGING"
     IN_PROGRESS = "IN_PROGRESS"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+
 
 class SetupMessage(BaseModel):
     type: Literal["setup"]
@@ -38,35 +42,37 @@ class SetupMessage(BaseModel):
     class Config:
         fields = {"from_": "from"}
 
+
 class PromptMessage(BaseModel):
     type: Literal["prompt"]
     voicePrompt: str
     lang: str
     last: bool
 
+
 class DTMFMessage(BaseModel):
     type: Literal["dtmf"]
     digit: str
+
 
 class InterruptMessage(BaseModel):
     type: Literal["interrupt"]
     utteranceUntilInterrupt: str
     durationUntilInterruptMs: int
 
+
 class ErrorMessage(BaseModel):
     type: Literal["error"]
     description: str
 
+
 # Union type for all incoming messages
 IncomingMessage = Union[
-    SetupMessage,
-    PromptMessage,
-    DTMFMessage,
-    InterruptMessage,
-    ErrorMessage
+    SetupMessage, PromptMessage, DTMFMessage, InterruptMessage, ErrorMessage
 ]
 
 # Outgoing Message Types to Twilio
+
 
 class TextTokenMessage(BaseModel):
     type: Literal["text"]
@@ -76,6 +82,7 @@ class TextTokenMessage(BaseModel):
     interruptible: Optional[bool] = None
     preemptible: Optional[bool] = None
 
+
 class PlayMediaMessage(BaseModel):
     type: Literal["play"]
     source: str
@@ -83,18 +90,22 @@ class PlayMediaMessage(BaseModel):
     preemptible: Optional[bool] = False
     interruptible: Optional[bool] = True
 
+
 class SendDigitsMessage(BaseModel):
     type: Literal["sendDigits"]
     digits: str
+
 
 class SwitchLanguageMessage(BaseModel):
     type: Literal["language"]
     ttsLanguage: Optional[str] = None
     transcriptionLanguage: Optional[str] = None
 
+
 class EndSessionMessage(BaseModel):
     type: Literal["end"]
     handoffData: Optional[str] = None
+
 
 # Union type for all outgoing messages
 OutgoingMessage = Union[
@@ -102,5 +113,5 @@ OutgoingMessage = Union[
     PlayMediaMessage,
     SendDigitsMessage,
     SwitchLanguageMessage,
-    EndSessionMessage
+    EndSessionMessage,
 ]
