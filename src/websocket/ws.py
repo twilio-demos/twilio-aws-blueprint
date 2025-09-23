@@ -9,7 +9,7 @@ from src.utils.env import (
 )
 from src.utils.logger import get_logger
 
-from .conversationRelayHandler import ConversationRelayHandler
+from .conversationrelayhandler import ConversationRelayHandler
 
 router = APIRouter()
 logger = get_logger(__name__)

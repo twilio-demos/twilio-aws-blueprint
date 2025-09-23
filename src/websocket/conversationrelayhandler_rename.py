@@ -14,8 +14,8 @@ from src.types.conversationrelay import (
 from src.utils.env import WELCOME_GREETING
 from src.utils.logger import get_logger
 
-from .dtmfBuffer import DtmfBuffer
-from .idleMinder import IdleMinder
+from .dtmfbuffer import DtmfBuffer
+from .idleminder import IdleMinder
 
 logger = get_logger(__name__)
 
