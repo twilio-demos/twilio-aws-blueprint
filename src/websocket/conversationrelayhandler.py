@@ -2,8 +2,10 @@ import json
 
 from fastapi import WebSocket
 
+from src.services.sessionservice import instance as session_service
 from src.types.conversationrelay import (
     DTMFMessage,
+    EndSessionMessage,
     ErrorMessage,
     InterruptMessage,
     OutgoingMessage,
@@ -11,7 +13,7 @@ from src.types.conversationrelay import (
     SetupMessage,
     TextTokenMessage,
 )
-from src.utils.env import WELCOME_GREETING
+from src.utils.env import IDLE_REMINDER, WELCOME_GREETING
 from src.utils.logger import get_logger
 
 from .dtmfbuffer import DtmfBuffer
@@ -27,27 +29,30 @@ class ConversationRelayHandler:
         self.websocket = websocket
         self.session_id: str | None = None
         self.call_sid: str | None = None
+        self.session_service = session_service
         self.dtmf_buffer = DtmfBuffer()
         self.idle_minder = IdleMinder(self.handle_idle)
 
     async def handle_idle(self, reached_max_attempts: bool):
         if reached_max_attempts:
-            # TODO: Update call with new twiml.
-            logger.info("TODO: Should end call now.")
+            # Send end message with handoff data.
+            response = EndSessionMessage(type="end", handoffData='{"result":"idle"}')
+            await self.send_message(response)
             return
 
-        # TODO: This response should be configurable.
-        idle_response = "I'm still here, let me know when you are ready to continue."
-        response = TextTokenMessage(type="text", token=idle_response, last=True)
+        # TODO: LLM probably needs to know about this.
+        response = TextTokenMessage(type="text", token=IDLE_REMINDER, last=True)
         await self.send_message(response)
-        self.idle_minder.handle_activity(True, idle_response)
+        self.idle_minder.handle_activity(True, IDLE_REMINDER)
 
     async def handle_setup_message(self, message: SetupMessage):
         """Handle setup message from Twilio"""
         self.session_id = message.sessionId
         self.call_sid = message.callSid
         self.dtmf_buffer.session_id = self.session_id
+        self.dtmf_buffer.call_sid = self.call_sid
         self.idle_minder.session_id = self.session_id
+        self.idle_minder.call_sid = self.call_sid
 
         logger.info(
             "ConversationRelay session setup",
@@ -61,9 +66,38 @@ class ConversationRelayHandler:
             },
         )
 
-        self.idle_minder.handle_activity(False, WELCOME_GREETING or "")
+        new_session = True
 
-        # TODO: If resume_session_id present, check that call_sid did not change, and copy session.
+        if (
+            message.customParameters is not None
+            and "resume_session_id" in message.customParameters
+            and "resume_call_sid" in message.customParameters
+        ):
+            old_session = self.session_service.get(
+                message.customParameters["resume_call_sid"],
+                message.customParameters["resume_session_id"],
+            )
+            if (
+                old_session is not None
+                and old_session.CallSid == message.customParameters["resume_call_sid"]
+            ):
+                new_session = False
+                logger.info(
+                    "Restoring previous session",
+                    {
+                        "callSid": self.call_sid,
+                        "oldSession": old_session.SessionId,
+                        "newSession": self.session_id,
+                    },
+                )
+                self.session_service.restore(
+                    self.call_sid, self.session_id, old_session
+                )
+
+        if new_session:
+            self.session_service.create(self.call_sid, self.session_id)
+
+        self.idle_minder.handle_activity(False, WELCOME_GREETING)
 
         # TODO: Initialize AI agent session
         # TODO: Send welcome message if needed
@@ -154,6 +188,7 @@ class ConversationRelayHandler:
         )
 
     def process_disconnect(self):
+        self.dtmf_buffer.clear()
         self.idle_minder.clear()
 
     async def process_message(self, raw_message: str):

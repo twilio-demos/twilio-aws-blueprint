@@ -42,8 +42,6 @@ class RequestValidatorMiddleware(BaseHTTPMiddleware):
         return params
 
     async def dispatch(self, request: Request, call_next):
-        logger.info("Middleware invoked")
-
         # Get request body based on content type
         params = await self.parse_params(request)
 

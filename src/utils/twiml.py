@@ -34,10 +34,29 @@ def create_initial_twiml(
     return str(response)
 
 
-def create_fallback_twiml():
+def create_say_hangup_twiml(prompt):
     fallback_response = VoiceResponse()
     fallback_response.say(
-        "I'm sorry, there was an error starting the conversation. Please try again later."
+        prompt,
+        voice="Google.en-US-Chirp3-HD-Aoede",
     )
     fallback_response.hangup()
     return str(fallback_response)
+
+
+def create_fallback_twiml():
+    return create_say_hangup_twiml(
+        "I'm sorry, there was an error starting the conversation. Please try again later."
+    )
+
+
+def create_idle_twiml():
+    return create_say_hangup_twiml(
+        "I'm sorry, I haven't heard you respond in a while. Please try your call again."
+    )
+
+
+def create_error_twiml():
+    return create_say_hangup_twiml(
+        "I'm sorry, a problem occurred while handling your call. Please try your call again."
+    )

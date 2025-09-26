@@ -1,6 +1,10 @@
+import json
+
 from fastapi import APIRouter, HTTPException, Request, Response
 
+from src.services.sessionservice import instance as session_service
 from src.utils.env import WELCOME_GREETING
+from src.utils.handoff import handle_handoff
 from src.utils.logger import get_logger
 from src.utils.twiml import create_fallback_twiml, create_initial_twiml
 
@@ -80,54 +84,67 @@ async def call_action(request: Request):
         # Get parsed request body
         params = request.state.twilio_params
 
-        # TODO: Uncomment below line to reconnect upon failure only.
-        # if 'SessionId' in params and 'ErrorCode' in params:
         if "SessionId" in params:
-            host = request.headers.get("host")
-
             call_sid = params.get("CallSid")
-            error_code = params.get("ErrorCode")
-            error_message = params.get("ErrorMessage")
-            session_duration = params.get("SessionDuration")
             session_id = params.get("SessionId")
             session_status = params.get("SessionStatus")
 
-            action_url = str(request.url)
+            session_service.update_status(call_sid, session_id, session_status)
 
-            logger.info(
-                "Connect action received with error code",
-                {
-                    "call_sid": call_sid,
-                    "error_code": error_code,
-                    "error_message": error_message,
-                    "session_duration": session_duration,
-                    "session_id": session_id,
-                    "session_status": session_status,
-                },
-            )
+            if "HandoffData" in params:
+                handoff_data = json.loads(params.get("HandoffData"))
+                logger.info(
+                    "Handling handoff data",
+                    {
+                        "call_sid": call_sid,
+                        "session_id": session_id,
+                        "data": handoff_data,
+                    },
+                )
+                return handle_handoff(call_sid, session_id, handoff_data)
 
-            # Create ConversationRelay twiml again to resume the session
-            # Leave out the welcome message for a seamless experience
-            twiml_response = create_initial_twiml(
-                action_url,
-                host,
-                "",
-                {"resume_session_id": session_id, "resume_call_sid": call_sid},
-            )
+            if "ErrorCode" in params:
+                host = request.headers.get("host")
 
-            logger.info(
-                "ConversationRelay reconnect TwiML response generated",
-                {
-                    "CallSid": call_sid,
-                    "SessionId": session_id,
-                    "responseLength": len(twiml_response),
-                    "response": twiml_response,
-                },
-            )
+                error_code = params.get("ErrorCode")
+                error_message = params.get("ErrorMessage")
+                session_duration = params.get("SessionDuration")
 
-            return Response(content=twiml_response, media_type="text/xml")
+                action_url = str(request.url)
 
-        # TODO: Implement call action logic
+                logger.info(
+                    "Connect action received with error code",
+                    {
+                        "call_sid": call_sid,
+                        "error_code": error_code,
+                        "error_message": error_message,
+                        "session_duration": session_duration,
+                        "session_id": session_id,
+                        "session_status": session_status,
+                    },
+                )
+
+                # Create ConversationRelay twiml again to resume the session
+                # Leave out the welcome message for a seamless experience
+                twiml_response = create_initial_twiml(
+                    action_url,
+                    host,
+                    "",
+                    {"resume_session_id": session_id, "resume_call_sid": call_sid},
+                )
+
+                logger.info(
+                    "ConversationRelay reconnect TwiML response generated",
+                    {
+                        "CallSid": call_sid,
+                        "SessionId": session_id,
+                        "responseLength": len(twiml_response),
+                        "response": twiml_response,
+                    },
+                )
+
+                return Response(content=twiml_response, media_type="text/xml")
+
         logger.info("Call action received", {"params": params})
         return {"result": "action received"}
 
