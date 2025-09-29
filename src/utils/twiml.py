@@ -1,3 +1,5 @@
+from typing import List, Optional
+
 from twilio.twiml.voice_response import VoiceResponse
 
 from src.utils.env import TTS_PROVIDER, TTS_VOICE
@@ -7,7 +9,11 @@ logger = get_logger(__name__)
 
 
 def create_initial_twiml(
-    action_url: str | None, host: str | None, welcome_greeting: str, params: dict
+    action_url: Optional[str],
+    host: Optional[str],
+    welcome_greeting: str,
+    hints: List[str],
+    params: dict,
 ):
     # Create TwiML response using Twilio SDK
     response = VoiceResponse()
@@ -26,6 +32,7 @@ def create_initial_twiml(
         welcome_greeting=welcome_greeting,
         tts_provider=TTS_PROVIDER,
         voice=TTS_VOICE,
+        hints=",".join(hints) if len(hints) > 0 else "",
     )
 
     for param, value in params.items():

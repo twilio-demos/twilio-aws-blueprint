@@ -34,6 +34,7 @@ TTS_VOICE = get_env_var("TTS_VOICE", "lxYfHSkYm1EzQzGhdbfc")
 TTS_LANGUAGE = get_env_var("TTS_LANGUAGE", "en-US")
 
 # Additional configuration
+INITIAL_HINTS = os.getenv("INITIAL_HINTS", "")
 WELCOME_GREETING = os.getenv(
     "WELCOME_GREETING", "Hello! I'm your AI assistant. How can I help you today?"
 )

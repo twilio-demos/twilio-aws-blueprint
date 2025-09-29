@@ -3,7 +3,7 @@ import json
 from fastapi import APIRouter, HTTPException, Request, Response
 
 from src.services.sessionservice import instance as session_service
-from src.utils.env import WELCOME_GREETING
+from src.utils.env import INITIAL_HINTS, WELCOME_GREETING
 from src.utils.handoff import handle_handoff
 from src.utils.logger import get_logger
 from src.utils.twiml import create_fallback_twiml, create_initial_twiml
@@ -40,11 +40,18 @@ async def call_twiml(request: Request):
         direction = params.get("Direction")
         language = params.get("language", "en-US")
         welcome_greeting = params.get("welcomeGreeting", WELCOME_GREETING)
+        initial_hints = params.get("initialHints", INITIAL_HINTS)
         action_url = params.get("actionUrl")
         host = request.headers.get("host")
 
         # Generate ConversationRelay twiml
-        twiml_response = create_initial_twiml(action_url, host, welcome_greeting, {})
+        twiml_response = create_initial_twiml(
+            action_url,
+            host,
+            welcome_greeting,
+            initial_hints.split(",") if len(initial_hints) > 0 else [],
+            {},
+        )
 
         logger.info(
             "ConversationRelay TwiML response generated",
@@ -101,7 +108,7 @@ async def call_action(request: Request):
                         "data": handoff_data,
                     },
                 )
-                return handle_handoff(call_sid, session_id, handoff_data)
+                return handle_handoff(request)
 
             if "ErrorCode" in params:
                 host = request.headers.get("host")
@@ -130,6 +137,7 @@ async def call_action(request: Request):
                     action_url,
                     host,
                     "",
+                    [],
                     {"resume_session_id": session_id, "resume_call_sid": call_sid},
                 )
 
