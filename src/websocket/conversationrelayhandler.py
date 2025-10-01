@@ -2,6 +2,7 @@ import json
 
 from fastapi import WebSocket
 
+from src.ai.agent.core.agent_runner import AIAgentRunner
 from src.services.sessionservice import instance as session_service
 from src.types.conversationrelay import (
     DTMFMessage,
@@ -32,6 +33,7 @@ class ConversationRelayHandler:
         self.session_service = session_service
         self.dtmf_buffer = DtmfBuffer()
         self.idle_minder = IdleMinder(self.handle_idle)
+        self.agent_runner = AIAgentRunner()
 
     async def handle_idle(self, reached_max_attempts: bool):
         if reached_max_attempts:
@@ -120,11 +122,18 @@ class ConversationRelayHandler:
         # TODO: Generate response
 
         # Example response - replace with AI processing
-        sampleResponse = "I heard you say: " + message.voicePrompt
-        response = TextTokenMessage(type="text", token=sampleResponse, last=True)
-        await self.send_message(response)
+        # sampleResponse = "I heard you say: " + message.voicePrompt
+        # response = TextTokenMessage(type="text", token=sampleResponse, last=True)
+        # await self.send_message(response)
 
-        self.idle_minder.handle_activity(False, sampleResponse)
+        async for chunk in self.agent_runner.stream_request(message.voicePrompt):
+            logger.debug("Stream chunk:", {"chunk": chunk})
+            if chunk:
+                response = TextTokenMessage(type="text", token=chunk, last=False)
+                logger.info("Sending text token to Twilio", {"text": response})
+                await self.send_message(response)
+
+                self.idle_minder.handle_activity(False, chunk)
 
     async def handle_dtmf_message(self, message: DTMFMessage):
         """Handle DTMF digit from caller"""

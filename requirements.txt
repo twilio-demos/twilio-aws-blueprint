@@ -7,3 +7,8 @@ twilio
 python-dotenv
 python-multipart
 ruff
+langgraph
+langchain-aws
+langchain-core
+typing-extensions
+pydantic_settings
