@@ -133,6 +133,7 @@ async def call_action(request: Request):
 
                 # Create ConversationRelay twiml again to resume the session
                 # Leave out the welcome message for a seamless experience
+                # TODO: Restore hints (keep them in state?)
                 twiml_response = create_initial_twiml(
                     action_url,
                     host,

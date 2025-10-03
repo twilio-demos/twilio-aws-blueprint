@@ -2,7 +2,7 @@ import json
 from abc import ABC
 
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, TokenRetrievalError
 
 from src.utils.logger import get_logger
 
@@ -22,6 +22,7 @@ class DynamoDBService(ABC):
                 "Unable to connect to DynamoDB",
                 {"table_name": self.table_name, "error": e},
             )
+            self.exists = False
         else:
             self.exists = self.load()
 
@@ -55,6 +56,15 @@ class DynamoDBService(ABC):
                     },
                 )
                 exists = False
+        except TokenRetrievalError as err:
+            logger.error(
+                "Token error trying to load table from DynamoDB",
+                {
+                    "table_name": self.table_name,
+                    "error": err,
+                },
+            )
+            exists = False
         else:
             self.table = table
         return exists
