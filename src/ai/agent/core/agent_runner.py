@@ -50,13 +50,18 @@ class AIAgentRunner:
         # initial_state = self.graph.create_initial_state(user_input)
 
         try:
-            self.state["messages"] = [
-                *self.state["messages"],
-                HumanMessage(content=user_input),
-            ]
+            if not self.agent_graph.graph.get_state(self.config).values:
+                # Initialize with defaults
+                logger.info("Initializing agent state with defaults")
+                self.agent_graph.graph.update_state(
+                    self.config,
+                    {"messages": [], "user_authenticated": False, "username": None},
+                )
             # Stream the execution of the agent graph messages
             for msg, metadata in self.agent_graph.graph.stream(
-                self.state, self.config, stream_mode="messages"
+                {"messages": [HumanMessage(content=user_input)]},
+                self.config,
+                stream_mode="messages",
             ):
                 # Handle different message types
                 if isinstance(msg, HumanMessage):
@@ -83,11 +88,11 @@ class AIAgentRunner:
                                     text = block["text"]
                                     yield text
 
-            current_state = self.agent_graph.graph.get_state(self.config)
+            # current_state = self.agent_graph.graph.get_state(self.config)
 
-            for k in AgentState.__annotations__:
-                if k in current_state.values:
-                    self.state[k] = current_state.values[k]
+            # for k in AgentState.__annotations__:
+            #     if k in current_state.values:
+            #         self.state[k] = current_state.values[k]
 
         except Exception as e:
             error_msg = f"Streaming error: {str(e)}"

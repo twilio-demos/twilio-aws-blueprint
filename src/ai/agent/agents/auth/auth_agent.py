@@ -1,6 +1,5 @@
 """Authentication agent for handling user authentication and verification."""
 
-from langchain_aws import ChatBedrockConverse
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END
@@ -8,6 +7,7 @@ from langgraph.types import Command
 
 from src.utils.logger import get_logger
 
+from ...core.bedrock import BedrockClientFactory
 from ..base_agent import BaseAgent
 from .auth_tools import authenticate_user
 
@@ -15,11 +15,14 @@ logger = get_logger(__name__)
 
 
 class AuthAgent(BaseAgent):
+    MODEL_NAME = "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+    REGION_NAME = "us-east-1"
+
     def __init__(self):
         auth_prompt = ChatPromptTemplate.from_messages(
             [
                 (
-                    "user",
+                    "system",
                     """You are an authentication assistant for voice interactions.
 
                     Your ONLY role is to verify user identity. Do not answer questions about accounts, balances, transactions, or any other topics.
@@ -49,7 +52,6 @@ class AuthAgent(BaseAgent):
                     - "I couldn't verify those details. Let's try again."
 
                     Off-topic questions:
-                    - "I can only help with identity verification. Please complete authentication first."
                     - "Let me verify your identity first. What's your first name?"
                     """,
                 ),
@@ -57,9 +59,7 @@ class AuthAgent(BaseAgent):
             ]
         )
 
-        llm = ChatBedrockConverse(
-            model="us.anthropic.claude-3-5-haiku-20241022-v1:0", region_name="us-east-1"
-        )
+        llm = BedrockClientFactory.get_latency_optimized_llm_with_guardrails()
 
         tools = [authenticate_user]
 

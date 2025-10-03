@@ -9,8 +9,13 @@ from ..agents.account_info.account_agent import AccountAgent, account_agent_next
 from ..agents.account_info.account_tools import account_balance, account_info
 from ..agents.auth.auth_agent import AuthAgent, auth_agent_next_step
 from ..agents.auth.auth_tools import authenticate_user
+from ..agents.kb.kb_agent import (
+    KnowledgeBaseAgent,
+    kb_agent_next_step,
+    knowledge_base_search,
+)
 from ..agents.supervisor.supervisor_agent import SupervisorAgent
-from ..models.state import AgentState
+from ..models.state import AgentState, default_agent_state
 
 
 class AgentGraph:
@@ -26,18 +31,25 @@ class AgentGraph:
         self.account_agent = AccountAgent()
         self.account_tool_node = ToolNode([account_info, account_balance])
 
+        # Initialize KB agent and tool node
+        self.kb_agent = KnowledgeBaseAgent()
+        self.kb_tool_node = ToolNode([knowledge_base_search])
+
         # Create the graph
         self.graph = self._build_graph()
 
     def _build_graph(self) -> CompiledStateGraph:
-        graph = StateGraph(AgentState)
+        state = default_agent_state()
+        graph = StateGraph(AgentState)  # type: ignore
         # Add all agent nodes
         graph.add_node("supervisor", self.supervisor)
         graph.add_node("auth_agent", self.auth_agent)
         graph.add_node("account_agent", self.account_agent)
+        graph.add_node("kb_agent", self.kb_agent)
 
         graph.add_node("auth_tool_node", self.auth_tool_node)
         graph.add_node("account_tool_node", self.account_tool_node)
+        graph.add_node("kb_tool_node", self.kb_tool_node)
 
         # Add coordination edges
         graph.add_edge(START, "supervisor")
@@ -54,8 +66,15 @@ class AgentGraph:
             {"account_tool_node": "account_tool_node", END: END},
         )
 
+        graph.add_conditional_edges(
+            "kb_agent",
+            kb_agent_next_step,
+            {"kb_tool_node": "kb_tool_node", END: END},
+        )
+
         graph.add_edge("auth_tool_node", "auth_agent")
         graph.add_edge("account_tool_node", "account_agent")
+        graph.add_edge("kb_tool_node", "kb_agent")
 
         memory = MemorySaver()
 

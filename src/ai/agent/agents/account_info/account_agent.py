@@ -1,6 +1,5 @@
 """Account information agent for handling account-related requests."""
 
-from langchain_aws import ChatBedrockConverse
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END
@@ -8,6 +7,7 @@ from langgraph.types import Command
 
 from src.utils.logger import get_logger
 
+from ...core.bedrock import BedrockClientFactory
 from ..base_agent import BaseAgent
 from .account_tools import account_balance, account_info
 
@@ -19,6 +19,7 @@ class AccountAgent(BaseAgent):
         account_prompt = ChatPromptTemplate.from_messages(
             [
                 (
+                    "system",
                     """You are an account assistant for voice interactions with authenticated users.
 
                         Your role:
@@ -50,15 +51,14 @@ class AccountAgent(BaseAgent):
                         - "Your checking balance is one thousand two hundred thirty four dollars and fifty six cents."
                         - "You have three accounts: checking, savings, and credit card."
                         - "Which account would you like to know about?"
-                        """
+                        """,
                 ),
                 MessagesPlaceholder(variable_name="messages"),
             ]
         )
 
-        llm = ChatBedrockConverse(
-            model="us.anthropic.claude-3-5-haiku-20241022-v1:0", region_name="us-east-1"
-        )
+        llm = BedrockClientFactory.get_latency_optimized_llm_with_guardrails()
+
         tools = [account_info, account_balance]
 
         runnable = account_prompt | llm.bind_tools(tools)
