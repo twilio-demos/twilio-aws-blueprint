@@ -15,6 +15,8 @@ class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], operator.add]
     user_authenticated: bool  # whether the user is authenticated
     username: Optional[str]
+    current_agent: Optional[str]
+    next_agent: Optional[str]
 
 
 def default_agent_state() -> AgentState:
@@ -23,4 +25,6 @@ def default_agent_state() -> AgentState:
         "messages": [],
         "user_authenticated": False,
         "username": None,
+        "current_agent": None,
+        "next_agent": None,
     }

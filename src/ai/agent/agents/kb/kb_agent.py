@@ -5,16 +5,16 @@ from langchain_core.tools import tool
 from langgraph.graph import END
 from langgraph.types import Command
 
+from src.ai.agent.core.agent_config import agent_config
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Initialize retriever
 retriever = AmazonKnowledgeBasesRetriever(
-    knowledge_base_id="NCWLZCBIRG",
-    retrieval_config={"vectorSearchConfiguration": {"numberOfResults": 5}},
-    min_score_confidence=0.0,
-    region_name="us-east-1",
+    knowledge_base_id=agent_config.knowledge_base_id,
+    retrieval_config=agent_config.retrieval_config,
+    min_score_confidence=agent_config.min_score_confidence,
+    region_name=agent_config.region_name,
 )
 
 

@@ -1,26 +1,30 @@
 from langchain_aws import ChatBedrockConverse
 
+from src.ai.agent.core.agent_config import agent_config
+
 
 class BedrockClientFactory:
-    DEFAULT_MODEL = "us.anthropic.claude-3-5-haiku-20241022-v1:0"
-    AWS_REGION = "us-east-1"
-    guardrail_id = "9tkyn5erdp9o"
-    guardrail_version = "DRAFT"
-
     @staticmethod
     def get_latency_optimized_llm_with_guardrails():
-        llm_with_guardrails = ChatBedrockConverse(
-            model=BedrockClientFactory.DEFAULT_MODEL,
-            temperature=0,
-            max_tokens=4000,
-            region_name=BedrockClientFactory.AWS_REGION,
-            performance_config={
+        # Prepare base configuration
+        llm_config = {
+            "model": agent_config.model_name,
+            "temperature": 0,
+            "max_tokens": 4000,
+            "region_name": agent_config.region_name,
+            "performance_config": {
                 "latency": "optimized",
             },
-            guardrails={
-                "guardrailIdentifier": BedrockClientFactory.guardrail_id,
-                "guardrailVersion": BedrockClientFactory.guardrail_version,
+        }
+
+        # Add guardrails configuration only if guardrail_id is provided
+        if agent_config.guardrail_id:
+            llm_config["guardrails"] = {
+                "guardrailIdentifier": agent_config.guardrail_id,
+                "guardrailVersion": agent_config.guardrail_version,
                 "trace": "enabled",
-            },
-        )
+            }
+            llm_config["guard_last_turn_only"] = True
+
+        llm_with_guardrails = ChatBedrockConverse(**llm_config)
         return llm_with_guardrails

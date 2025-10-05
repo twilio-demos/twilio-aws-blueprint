@@ -30,9 +30,9 @@ class MockDatabase:
     def __init__(self):
         """Initialize the mock database with sample users."""
         self._users: Dict[str, User] = {
-            "alice_smith": User(
-                username="alice_smith",
-                first_name="Alice",
+            "john_smith": User(
+                username="john_smith",
+                first_name="John",
                 last_name="Smith",
                 date_of_birth="1985-03-15",
                 accounts=[

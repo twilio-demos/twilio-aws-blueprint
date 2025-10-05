@@ -34,7 +34,6 @@ class AuthAgent(BaseAgent):
 
                     If user asks about anything else:
                     - Do NOT provide suggestions or alternatives
-                    - Redirect back to supervisor node
 
                     Current status: {user_authenticated}
 
@@ -71,11 +70,20 @@ class AuthAgent(BaseAgent):
 
         logger.info("Auth agent invoked:", {"result": result})
 
-        return Command(
-            update={
-                "messages": [result],
-            }
-        )
+        if state.get("next_agent") and state.get("user_authenticated", True):
+            logger.info(
+                "Auth agent routing to next agent:", {"next_agent": state["next_agent"]}
+            )
+            return Command(
+                goto=state["next_agent"],
+                update={
+                    "next_agent": None,
+                    "current_agent": None,
+                    "messages": [result],
+                },
+            )
+        else:
+            return Command(goto=END, update={"messages": [result]})
 
 
 def auth_agent_next_step(state):

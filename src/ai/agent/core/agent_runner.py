@@ -73,6 +73,37 @@ class AIAgentRunner:
                         if isinstance(metadata, dict)
                         else None
                     )
+                    # TODO: Check for guardrail intervention, Bedrock API only supports user and assistant roles
+                    # there seems to issue when a tool call message is added. guard_content doesn't seem to work.
+                    # therefore, best to remove the user message that tripped the guardrail filer in the first place.
+
+                    # # Check for guardrail intervention
+                    # guardrail_triggered = False
+                    # if metadata and isinstance(metadata, dict):
+                    #     output_body = metadata.get("output_body_json") or metadata.get(
+                    #         "outputBodyJson"
+                    #     )
+                    #     if output_body:
+                    #         stop_reason = output_body.get("stopReason")
+                    #         print("stop reason:", stop_reason)
+                    #         if stop_reason == "guardrail_intervened":
+                    #             guardrail_triggered = True
+
+                    # # If guardrail triggered, remove last user message from state
+                    # if guardrail_triggered:
+                    #     logger.info(
+                    #         "Guardrail triggered: removing last user message from state."
+                    #     )
+                    #     current_state = self.agent_graph.graph.get_state(self.config)
+                    #     messages = current_state.values.get("messages", [])
+                    #     # Remove last HumanMessage if present
+                    #     print("last message:", messages[-1] if messages else None)
+                    #     if messages and isinstance(messages[-1], HumanMessage):
+                    #         messages = messages[:-1]
+                    #         self.agent_graph.graph.update_state(
+                    #             self.config, {"messages": messages}
+                    #         )
+
                     # Skip SupervisorAgent outputs (control messages)
                     if sender == "supervisor":
                         logger.info(f"[Supervisor] {msg.content}")
