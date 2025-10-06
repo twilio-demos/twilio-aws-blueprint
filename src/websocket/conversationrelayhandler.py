@@ -3,6 +3,7 @@ import json
 from fastapi import WebSocket
 
 from src.services.sessionservice import instance as session_service
+from src.services.threadservice import instance as thread_service
 from src.types.conversationrelay import (
     DTMFMessage,
     EndSessionMessage,
@@ -13,6 +14,7 @@ from src.types.conversationrelay import (
     SetupMessage,
     TextTokenMessage,
 )
+from src.types.models import MessageType
 from src.utils.env import IDLE_REMINDER, WELCOME_GREETING
 from src.utils.logger import get_logger
 
@@ -27,9 +29,11 @@ class ConversationRelayHandler:
 
     def __init__(self, websocket: WebSocket):
         self.websocket = websocket
-        self.session_id: str | None = None
         self.call_sid: str | None = None
+        self.session_id: str | None = None
+        self.thread_id: str | None = None
         self.session_service = session_service
+        self.thread_service = thread_service
         self.dtmf_buffer = DtmfBuffer()
         self.idle_minder = IdleMinder(self.handle_idle)
 
@@ -44,6 +48,10 @@ class ConversationRelayHandler:
         response = TextTokenMessage(type="text", token=IDLE_REMINDER, last=True)
         await self.send_message(response)
         self.idle_minder.handle_activity(True, IDLE_REMINDER)
+        if self.thread_id is not None:
+            self.thread_service.append(
+                self.thread_id, IDLE_REMINDER, MessageType.system
+            )
 
     async def handle_setup_message(self, message: SetupMessage):
         """Handle setup message from Twilio"""
@@ -93,11 +101,17 @@ class ConversationRelayHandler:
                 self.session_service.restore(
                     self.call_sid, self.session_id, old_session
                 )
+                self.thread_service.get(old_session.ThreadId)
+                self.thread_id = old_session.ThreadId
 
         if new_session:
-            self.session_service.create(self.call_sid, self.session_id)
-
-        self.idle_minder.handle_activity(False, WELCOME_GREETING)
+            session = self.session_service.create(self.call_sid, self.session_id)
+            self.thread_id = session.ThreadId
+            self.idle_minder.handle_activity(False, WELCOME_GREETING)
+            if self.thread_id is not None:
+                self.thread_service.append(
+                    self.thread_id, WELCOME_GREETING, MessageType.system
+                )
 
         # TODO: Initialize AI agent session
         # TODO: Send welcome message if needed
@@ -115,6 +129,10 @@ class ConversationRelayHandler:
         )
 
         self.idle_minder.handle_activity()
+        if self.thread_id is not None:
+            self.thread_service.append(
+                self.thread_id, message.voicePrompt, MessageType.user
+            )
 
         # TODO: Process with AI agent
         # TODO: Generate response
@@ -125,6 +143,10 @@ class ConversationRelayHandler:
         await self.send_message(response)
 
         self.idle_minder.handle_activity(False, sampleResponse)
+        if self.thread_id is not None:
+            self.thread_service.append(
+                self.thread_id, sampleResponse, MessageType.agent
+            )
 
     async def handle_dtmf_message(self, message: DTMFMessage):
         """Handle DTMF digit from caller"""
@@ -134,6 +156,8 @@ class ConversationRelayHandler:
         )
 
         async def handle_dtmf_flush(digits: str):
+            if self.thread_id is not None:
+                self.thread_service.append(self.thread_id, digits, MessageType.user)
             # TODO: Process with AI agent
             # Example response - replace with AI processing
             response = TextTokenMessage(
@@ -142,6 +166,10 @@ class ConversationRelayHandler:
                 last=True,
             )
             await self.send_message(response)
+            if self.thread_id is not None:
+                self.thread_service.append(
+                    self.thread_id, response.token, MessageType.agent
+                )
 
         await self.dtmf_buffer.handle_input(message.digit, handle_dtmf_flush)
 
