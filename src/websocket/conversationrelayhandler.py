@@ -1,4 +1,5 @@
 import json
+from typing import List
 
 from fastapi import WebSocket
 
@@ -75,6 +76,17 @@ class ConversationRelayHandler:
         )
 
         new_session = True
+        hints = None
+        language = None
+        greeting = WELCOME_GREETING
+        if message.customParameters is not None:
+            # Persist custom settings to the session
+            if "initial_hints" in message.customParameters:
+                hints = message.customParameters["initial_hints"]
+            if "initial_language" in message.customParameters:
+                language = message.customParameters["initial_language"]
+            if "initial_greeting" in message.customParameters:
+                greeting = message.customParameters["initial_greeting"]
 
         if (
             message.customParameters is not None
@@ -99,19 +111,19 @@ class ConversationRelayHandler:
                     },
                 )
                 self.session_service.restore(
-                    self.call_sid, self.session_id, old_session
+                    self.call_sid, self.session_id, hints, language, old_session
                 )
                 self.thread_service.get(old_session.ThreadId)
                 self.thread_id = old_session.ThreadId
 
         if new_session:
-            session = self.session_service.create(self.call_sid, self.session_id)
+            session = self.session_service.create(
+                self.call_sid, self.session_id, hints, language
+            )
             self.thread_id = session.ThreadId
-            self.idle_minder.handle_activity(False, WELCOME_GREETING)
+            self.idle_minder.handle_activity(False, greeting)
             if self.thread_id is not None:
-                self.thread_service.append(
-                    self.thread_id, WELCOME_GREETING, MessageType.system
-                )
+                self.thread_service.append(self.thread_id, greeting, MessageType.system)
 
         # TODO: Initialize AI agent session
         # TODO: Send welcome message if needed
@@ -200,6 +212,19 @@ class ConversationRelayHandler:
 
         # TODO: Handle error appropriately
         # TODO: Maybe send fallback response
+
+    async def update_hints(self, hints: List[str], prompt: str):
+        newResponse = EndSessionMessage(
+            type="end",
+            handoffData=json.dumps(
+                {
+                    "result": "hint",
+                    "message": prompt,
+                    "hints": ",".join(hints) if len(hints) > 0 else "",
+                }
+            ),
+        )
+        await self.send_message(newResponse)
 
     async def send_message(self, message: OutgoingMessage):
         """Send message to Twilio"""

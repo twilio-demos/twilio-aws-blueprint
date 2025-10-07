@@ -2,7 +2,14 @@ from enum import Enum
 
 from pydantic import BaseModel
 
-from src.utils.env import DTMF_MAX_DIGITS, DTMF_TIMEOUT, IDLE_MAX_ATTEMPTS, IDLE_TIMEOUT
+from src.utils.env import (
+    DTMF_MAX_DIGITS,
+    DTMF_TIMEOUT,
+    IDLE_MAX_ATTEMPTS,
+    IDLE_TIMEOUT,
+    INITIAL_HINTS,
+    TTS_LANGUAGE,
+)
 
 
 class CallRequest(BaseModel):
@@ -29,6 +36,8 @@ class SessionIdleConfig(BaseModel):
 class SessionConfig(BaseModel):
     DTMF: SessionDTMFConfig = SessionDTMFConfig()
     Idle: SessionIdleConfig = SessionIdleConfig()
+    Hints: str = INITIAL_HINTS
+    Language: str = TTS_LANGUAGE
 
 
 class Session(BaseModel):

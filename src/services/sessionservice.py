@@ -2,6 +2,8 @@ import copy
 import uuid
 from datetime import datetime, timezone
 
+from typing_extensions import Optional
+
 from src.types.models import (
     Session,
 )
@@ -17,7 +19,13 @@ class SessionService(DynamoDBService):
         super().__init__("ConversationRelaySessions")
         self.sessions: dict[str, Session] = {}
 
-    def create(self, call_sid: str, session_id: str) -> Session:
+    def create(
+        self,
+        call_sid: str,
+        session_id: str,
+        hints: Optional[str],
+        language: Optional[str],
+    ) -> Session:
         """Creates a session object, caches it in memory, and persists it to DynamoDB."""
         session = Session(
             CallSid=call_sid,
@@ -25,11 +33,22 @@ class SessionService(DynamoDBService):
             ThreadId=str(uuid.uuid4()),
             Created=datetime.now(timezone.utc).isoformat(),
         )
+        if hints is not None:
+            session.Config.Hints = hints
+        if language is not None:
+            session.Config.Language = language
         self.sessions[session_id] = session
         super()._add_item(session)
         return session
 
-    def restore(self, call_sid: str, session_id: str, old_session: Session) -> Session:
+    def restore(
+        self,
+        call_sid: str,
+        session_id: str,
+        hints: Optional[str],
+        language: Optional[str],
+        old_session: Session,
+    ) -> Session:
         """
         Restores a previous session to a new session.
         Creates a session object, caches it in memory, and persists it to DynamoDB.
@@ -39,6 +58,13 @@ class SessionService(DynamoDBService):
         session.SessionId = session_id
         session.SessionStatus = "in-progress"
         session.Created = datetime.now(timezone.utc).isoformat()
+
+        # The restored session may have updated configuration.
+        if hints is not None:
+            session.Config.Hints = hints
+        if language is not None:
+            session.Config.Language = language
+
         self.sessions[session_id] = session
         super()._add_item(session)
         return session
