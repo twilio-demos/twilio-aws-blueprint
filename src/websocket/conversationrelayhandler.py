@@ -13,6 +13,7 @@ from src.types.conversationrelay import (
     OutgoingMessage,
     PromptMessage,
     SetupMessage,
+    SwitchLanguageMessage,
     TextTokenMessage,
 )
 from src.types.models import MessageType
@@ -225,6 +226,14 @@ class ConversationRelayHandler:
             ),
         )
         await self.send_message(newResponse)
+
+    async def update_language(self, language: str):
+        newResponse = SwitchLanguageMessage(
+            type="language", ttsLanguage=language, transcriptionLanguage=language
+        )
+        await self.send_message(newResponse)
+        if self.call_sid is not None and self.session_id is not None:
+            session_service.update_language(self.call_sid, self.session_id, language)
 
     async def send_message(self, message: OutgoingMessage):
         """Send message to Twilio"""

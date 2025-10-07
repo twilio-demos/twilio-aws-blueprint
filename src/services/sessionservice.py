@@ -36,7 +36,7 @@ class SessionService(DynamoDBService):
         if hints is not None:
             session.Config.Hints = hints
         if language is not None:
-            session.Config.Language = language
+            session.Config.Lang = language
         self.sessions[session_id] = session
         super()._add_item(session)
         return session
@@ -63,7 +63,7 @@ class SessionService(DynamoDBService):
         if hints is not None:
             session.Config.Hints = hints
         if language is not None:
-            session.Config.Language = language
+            session.Config.Lang = language
 
         self.sessions[session_id] = session
         super()._add_item(session)
@@ -82,6 +82,32 @@ class SessionService(DynamoDBService):
 
         # Store in memory for future reference
         self.sessions[session_id] = Session(**session)
+        return self.sessions[session_id]
+
+    def update_language(
+        self, call_sid: str, session_id: str, language: str
+    ) -> Session | None:
+        """Updates session language and returns the updated session object."""
+
+        # Perform updates only if the value actually changed
+        if (
+            session_id in self.sessions
+            and self.sessions[session_id].Config.Lang == language
+        ):
+            return self.sessions[session_id]
+
+        super()._update_item(
+            {"CallSid": call_sid, "SessionId": session_id},
+            "set Config.Lang=:s",
+            {":s": language},
+        )
+
+        # Get the updated object if not in memory yet, otherwise update the object in-memory and return it
+        if session_id not in self.sessions:
+            return self.get(call_sid, session_id)
+
+        # Update object in memory
+        self.sessions[session_id].Config.Lang = language
         return self.sessions[session_id]
 
     def update_status(

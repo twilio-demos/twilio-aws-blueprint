@@ -139,7 +139,7 @@ async def call_action(request: Request):
                 initial_language = None
                 if session is not None:
                     initial_hints = session.Config.Hints
-                    initial_language = session.Config.Language
+                    initial_language = session.Config.Lang
 
                 twiml_response = create_initial_twiml(
                     action_url,

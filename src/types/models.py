@@ -37,7 +37,7 @@ class SessionConfig(BaseModel):
     DTMF: SessionDTMFConfig = SessionDTMFConfig()
     Idle: SessionIdleConfig = SessionIdleConfig()
     Hints: str = INITIAL_HINTS
-    Language: str = TTS_LANGUAGE
+    Lang: str = TTS_LANGUAGE
 
 
 class Session(BaseModel):
