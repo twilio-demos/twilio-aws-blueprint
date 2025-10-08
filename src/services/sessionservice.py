@@ -1,4 +1,6 @@
 import copy
+import uuid
+from datetime import datetime, timezone
 
 from src.types.models import (
     Session,
@@ -17,7 +19,12 @@ class SessionService(DynamoDBService):
 
     def create(self, call_sid: str, session_id: str) -> Session:
         """Creates a session object, caches it in memory, and persists it to DynamoDB."""
-        session = Session(CallSid=call_sid, SessionId=session_id)
+        session = Session(
+            CallSid=call_sid,
+            SessionId=session_id,
+            ThreadId=str(uuid.uuid4()),
+            Created=datetime.now(timezone.utc).isoformat(),
+        )
         self.sessions[session_id] = session
         super()._add_item(session)
         return session
@@ -31,6 +38,7 @@ class SessionService(DynamoDBService):
         session.CallSid = call_sid
         session.SessionId = session_id
         session.SessionStatus = "in-progress"
+        session.Created = datetime.now(timezone.utc).isoformat()
         self.sessions[session_id] = session
         super()._add_item(session)
         return session

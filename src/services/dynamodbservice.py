@@ -2,7 +2,7 @@ import json
 from abc import ABC
 
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, TokenRetrievalError
 
 from src.utils.logger import get_logger
 
@@ -16,12 +16,13 @@ class DynamoDBService(ABC):
         self.table_name = name
         self.table = None
         try:
-            self.dyn_resource = boto3.resource("dynamodb")
+            self.dyn_resource = boto3.resource("dynamodb", region_name="us-east-1")
         except Exception as e:
             logger.error(
                 "Unable to connect to DynamoDB",
                 {"table_name": self.table_name, "error": e},
             )
+            self.exists = False
         else:
             self.exists = self.load()
 
@@ -55,6 +56,15 @@ class DynamoDBService(ABC):
                     },
                 )
                 exists = False
+        except TokenRetrievalError as err:
+            logger.error(
+                "Token error trying to load table from DynamoDB",
+                {
+                    "table_name": self.table_name,
+                    "error": err,
+                },
+            )
+            exists = False
         else:
             self.table = table
         return exists
@@ -195,4 +205,31 @@ class DynamoDBService(ABC):
             )
 
     def object_to_dict(self, python_obj) -> dict:
-        return json.loads(json.dumps(python_obj, default=lambda o: o.__dict__))
+        """Convert a Python object to a dictionary suitable for DynamoDB."""
+        from datetime import datetime
+        from decimal import Decimal
+        from enum import Enum
+
+        from pydantic import BaseModel
+
+        # If it's a Pydantic model, use model_dump directly to avoid circular references
+        if isinstance(python_obj, BaseModel):
+            return python_obj.model_dump()
+
+        def default_serializer(obj):
+            if isinstance(obj, Decimal):
+                # Keep Decimals as Decimals for DynamoDB
+                return obj
+            elif isinstance(obj, datetime):
+                return obj.isoformat()
+            elif isinstance(obj, Enum):
+                return obj.value
+            elif isinstance(obj, BaseModel):
+                return obj.model_dump()
+            elif hasattr(obj, "__dict__"):
+                return obj.__dict__
+            else:
+                return str(obj)
+
+        # Use json serialization only for non-Pydantic objects
+        return json.loads(json.dumps(python_obj, default=default_serializer))

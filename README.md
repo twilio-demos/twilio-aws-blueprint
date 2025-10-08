@@ -88,6 +88,7 @@ requirements.txt                 # Python dependencies
 
    ```bash
    # Direct FastAPI
+   source venv/bin/activate
    python -m uvicorn src.main:app --reload --port 8000
 
    # Or with Docker
