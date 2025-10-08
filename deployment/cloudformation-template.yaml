@@ -439,6 +439,36 @@ Resources:
         - ContainerName: !Ref ServiceName
           ContainerPort: !Ref ContainerPort
           TargetGroupArn: !Ref TargetGroup
+  ConversationRelayMessages:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ConversationRelayMessages
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: ThreadId
+          AttributeType: S
+        - AttributeName: MessageId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: ThreadId
+          KeyType: HASH # Partition key
+        - AttributeName: MessageId
+          KeyType: RANGE # Sort key
+  ConversationRelaySessions:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ConversationRelaySessions
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: CallSid
+          AttributeType: S
+        - AttributeName: SessionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: CallSid
+          KeyType: HASH # Partition key
+        - AttributeName: SessionId
+          KeyType: RANGE # Sort key
 
   # IAM Roles
   TaskExecutionRole:
@@ -500,7 +530,9 @@ Resources:
                   - dynamodb:UpdateItem
                   - dynamodb:Query
                   - dynamodb:Scan
-                Resource: arn:aws:dynamodb:us-east-1:025066260694:table/ConversationRelaySessions
+                Resource:
+                  - arn:aws:dynamodb:us-east-1:025066260694:table/ConversationRelaySessions
+                  - arn:aws:dynamodb:us-east-1:025066260694:table/ConversationRelayMessages
         - PolicyName: BedrockAgentApiAccess
           PolicyDocument:
             Statement:
