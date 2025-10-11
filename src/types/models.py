@@ -1,8 +1,11 @@
 from enum import Enum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from src.utils.env import DTMF_MAX_DIGITS, DTMF_TIMEOUT, IDLE_MAX_ATTEMPTS, IDLE_TIMEOUT
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class CallRequest(BaseModel):
@@ -57,6 +60,17 @@ class ToolCall(BaseModel):
 
     # Allow field assignment after creation
     model_config = {"frozen": False}
+
+    @field_validator("arguments", mode="before")
+    @classmethod
+    def validate_arguments(cls, v):
+        """Ensure arguments is always a dictionary."""
+        if not isinstance(v, dict):
+            # Log the invalid value for debugging
+            logger.warning(f"ToolCall arguments should be a dict, got {type(v)}: {v}")
+            # Convert non-dict values to empty dict to prevent validation errors
+            return {}
+        return v
 
 
 class MessageContent(BaseModel):

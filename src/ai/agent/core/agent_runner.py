@@ -4,16 +4,15 @@ import uuid
 from decimal import Decimal
 from typing import AsyncGenerator
 
+from agent_graph import AgentGraph
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 
+from src.ai.agent.models.state import AgentState
 from src.services.threadservice import instance as thread_service
 from src.types.models import MessageType
 from src.utils.logger import get_logger
 from src.utils.message_builder import AgentMessageBuilder, create_user_message
-
-from ..models.state import AgentState
-from .agent_graph import AgentGraph
 
 logger = get_logger(__name__)
 
@@ -35,8 +34,7 @@ class AIAgentRunner:
             "messages": [],
             "user_authenticated": False,
             "username": None,
-            "current_agent": None,
-            "next_agent": None,
+            "dialog_state": [],
         }
         self.thread_service = thread_service
 
@@ -79,48 +77,69 @@ class AIAgentRunner:
                 self.config,
                 stream_mode="messages",
             ):
-                # Handle different message types
-                if isinstance(msg, HumanMessage):
-                    logger.info(f"[User] {msg.content}")
+                try:
+                    # Handle different message types
+                    if isinstance(msg, HumanMessage):
+                        logger.info(f"[User] {msg.content}")
 
-                elif isinstance(msg, AIMessage):
-                    sender = (
-                        metadata.get("langgraph_node")
-                        if isinstance(metadata, dict)
-                        else None
-                    )
+                    elif isinstance(msg, AIMessage):
+                        sender = None
+                        if metadata:
+                            if isinstance(metadata, dict):
+                                sender = metadata.get("langgraph_node")
+                            else:
+                                logger.warning(
+                                    f"Expected metadata to be dict, got {type(metadata)}: {metadata}"
+                                )
 
-                    # Process the AI message through the message builder
-                    message_builder.process_ai_message(msg, sender)
+                        # Process the AI message through the message builder
+                        message_builder.process_ai_message(msg, sender)
 
-                    # Add metadata from LangGraph
-                    if metadata and isinstance(metadata, dict):
-                        # Convert metadata to safe types (avoid Decimal issues)
+                        # Add metadata from LangGraph
+                        if metadata and isinstance(metadata, dict):
+                            # Convert metadata to safe types (avoid Decimal issues)
+                            safe_metadata = self.convert_decimals(metadata)
+                            message_builder.add_metadata(
+                                "langgraph_metadata", safe_metadata
+                            )
 
-                        safe_metadata = self.convert_decimals(metadata)
-                        message_builder.add_metadata(
-                            "langgraph_metadata", safe_metadata
-                        )
+                        # Skip SupervisorAgent outputs (control messages) from streaming
+                        if sender == "supervisor":
+                            logger.info(f"[Supervisor] {msg.content}")
+                            continue
 
-                    # Skip SupervisorAgent outputs (control messages) from streaming
-                    if sender == "supervisor":
-                        logger.info(f"[Supervisor] {msg.content}")
-                        continue
+                        # Stream the content to user
+                        if isinstance(msg.content, str):
+                            if msg.content.strip():  # Only yield non-empty content
+                                yield msg.content
+                        elif isinstance(msg.content, list):
+                            if len(msg.content) == 0:  # Handle empty lists
+                                logger.debug("Skipping empty content list")
+                                continue
+                            for i, block in enumerate(msg.content):
+                                logger.debug(
+                                    f"Processing content block {i}: {block} (type: {type(block)})"
+                                )
+                                if isinstance(block, dict):
+                                    if block.get("type") == "text":
+                                        text = block.get("text", "")
+                                        if text.strip():  # Only yield non-empty text
+                                            yield text
+                                else:
+                                    logger.warning(
+                                        f"Expected dict but got {type(block)} for block {i}: {block}"
+                                    )
 
-                    # Stream the content to user
-                    if isinstance(msg.content, str):
-                        yield msg.content
-                    elif isinstance(msg.content, list):
-                        for block in msg.content:
-                            if isinstance(block, dict):
-                                if block.get("type") == "text":
-                                    text = block["text"]
-                                    yield text
+                    elif isinstance(msg, ToolMessage):
+                        # Process tool results
+                        message_builder.process_tool_message(msg)
+                        logger.info(f"[Tool Result] {msg.content}")
 
-                elif isinstance(msg, ToolMessage):
-                    # Process tool results
-                    message_builder.process_tool_message(msg)
-                    logger.info(f"[Tool Result] {msg.content}")
+                except Exception as e:
+                    logger.error(f"Error processing message {type(msg)}: {e}")
+                    logger.error(f"Message: {msg}")
+                    logger.error(f"Metadata: {metadata}")
+                    raise
 
             # Store the complete agent message if we have content and a thread_id
             if thread_id is not None and message_builder.has_content():
@@ -128,16 +147,13 @@ class AIAgentRunner:
                 print("agent_message:", agent_message)
 
                 self.thread_service.append_rich_message(agent_message)
-                # tool_count = (
-                #     len(agent_message.RichContent.tool_calls)
-                #     if agent_message.RichContent
-                #     else 0
-                # )
-                # logger.info(f"Stored agent message with {tool_count} tool calls")
 
         except Exception as e:
+            import traceback
+
             error_msg = f"Streaming error: {str(e)}"
             logger.error(f"❌ {error_msg}")
+            logger.error(f"Full traceback: {traceback.format_exc()}")
 
             # Store error message if thread_id is provided
             if thread_id is not None:

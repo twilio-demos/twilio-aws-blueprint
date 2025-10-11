@@ -1,15 +1,15 @@
 """Account information agent for handling account-related requests."""
 
+from account_tools import account_balance, account_info
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END
 from langgraph.types import Command
 
+from src.ai.agent.agents.base_agent import BaseAgent
+from src.ai.agent.core.bedrock import BedrockClientFactory
+from src.ai.agent.tools.complete_or_escalate import complete_or_escalate_tool
 from src.utils.logger import get_logger
-
-from ...core.bedrock import BedrockClientFactory
-from ..base_agent import BaseAgent
-from .account_tools import account_balance, account_info
 
 logger = get_logger(__name__)
 
@@ -47,6 +47,14 @@ class AccountAgent(BaseAgent):
                         - If not authenticated, say: "Please verify your identity first."
                         - Confirm account type before sharing details
 
+                        When to use complete_or_escalate_tool:
+                        - User's account question is fully answered: cancel=True, reason="Account inquiry completed"
+                        - User asks about general banking info that you cannot answer: cancel=True, reason="User needs general banking information"
+
+                        If user asks about non-account topics:
+                        - Politely redirect them to account information questions
+                        - Do NOT use any tools for redirects, just respond with text
+
                         Example responses:
                         - "Your checking balance is one thousand two hundred thirty four dollars and fifty six cents."
                         - "You have three accounts: checking, savings, and credit card."
@@ -59,7 +67,7 @@ class AccountAgent(BaseAgent):
 
         llm = BedrockClientFactory.get_latency_optimized_llm_with_guardrails()
 
-        tools = [account_info, account_balance]
+        tools = [account_info, account_balance, complete_or_escalate_tool]
 
         runnable = account_prompt | llm.bind_tools(tools)
         super().__init__(runnable, tools)
@@ -84,7 +92,7 @@ def account_agent_next_step(state):
         state: The state object containing messages
 
     Returns:
-        str: Either "account_tool_node" or END
+        str: Either "account_tool_node", "leave_skill", or END
     """
     messages = state.get("messages", [])
 
@@ -92,6 +100,18 @@ def account_agent_next_step(state):
         return END
 
     last_message = messages[-1]
+
+    # Check if we just processed a CompleteOrEscalate tool result
+    if (
+        hasattr(last_message, "type")
+        and last_message.type == "tool"
+        and hasattr(last_message, "name")
+        and last_message.name == "complete_or_escalate_tool"
+    ):
+        logger.info(
+            "Account agent escalating to supervisor after CompleteOrEscalate tool result"
+        )
+        return "leave_skill"
 
     # Check if last_message has tool_calls and it's a non-empty list
     if (

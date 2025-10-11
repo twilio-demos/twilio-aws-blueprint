@@ -3,10 +3,9 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END
 from langgraph.types import Command
 
+from src.ai.agent.agents.base_agent import BaseAgent
+from src.ai.agent.core.bedrock import BedrockClientFactory
 from src.utils.logger import get_logger
-
-from ...core.bedrock import BedrockClientFactory
-from ..base_agent import BaseAgent
 
 logger = get_logger(__name__)
 
@@ -50,13 +49,22 @@ class SupervisorAgent(BaseAgent):
         super().__init__(supervisor_prompt | llm)
 
     def __call__(self, state, config: RunnableConfig):
-        if state.get("current_agent"):
+        dialog_state = None
+        user_authenticated = False
+        if isinstance(state, dict):
+            dialog_state = state.get("dialog_state", [])
+            user_authenticated = state.get("user_authenticated", False)
+        else:
+            logger.warning(f"Expected state to be dict, got {type(state)}: {state}")
+            dialog_state = []
+
+        if dialog_state and dialog_state[-1] != "supervisor":
             logger.info(
                 "SupervisorAgent routing to current agent:",
-                {"current_agent": state["current_agent"]},
+                {"current_agent": dialog_state[-1]},
             )
             return Command(
-                goto=state["current_agent"],
+                goto=dialog_state[-1],
             )
 
         result = self.runnable.invoke(state, config)
@@ -64,21 +72,21 @@ class SupervisorAgent(BaseAgent):
         if isinstance(result.content, str):
             content_text = result.content
         elif isinstance(result.content, list):
-            content_text = " ".join(
-                block.get("text", "")
-                for block in result.content
-                if isinstance(block, dict) and block.get("type") == "text"
-            )
+            text_blocks = []
+            for block in result.content:
+                if isinstance(block, dict) and block.get("type") == "text":
+                    text_blocks.append(block.get("text", ""))
+            content_text = " ".join(text_blocks)
         else:
             content_text = ""
 
         next_agent = content_text.strip().lower()
 
-        if next_agent == "account_agent" and not state.get("user_authenticated", False):
+        if next_agent == "account_agent" and not user_authenticated:
             print("User not authenticated, routing to auth_agent.")
             return Command(
                 goto="auth_agent",
-                update={"next_agent": next_agent, "current_agent": "auth_agent"},
+                update={"dialog_state": dialog_state + ["auth_agent"]},
             )
 
         # TODO: Add more robust validation, possibly using route to a general_agent
@@ -92,5 +100,5 @@ class SupervisorAgent(BaseAgent):
 
         return Command(
             goto=next_agent,
-            update={"next_agent": None, "current_agent": next_agent},
+            update={"dialog_state": dialog_state + [next_agent]},
         )

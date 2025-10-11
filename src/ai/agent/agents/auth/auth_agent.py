@@ -1,23 +1,20 @@
 """Authentication agent for handling user authentication and verification."""
 
+from auth_tools import authenticate_user
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END
 from langgraph.types import Command
 
+from src.ai.agent.agents.base_agent import BaseAgent
+from src.ai.agent.core.bedrock import BedrockClientFactory
+from src.ai.agent.tools.complete_or_escalate import complete_or_escalate_tool
 from src.utils.logger import get_logger
-
-from ...core.bedrock import BedrockClientFactory
-from ..base_agent import BaseAgent
-from .auth_tools import authenticate_user
 
 logger = get_logger(__name__)
 
 
 class AuthAgent(BaseAgent):
-    MODEL_NAME = "us.anthropic.claude-3-5-haiku-20241022-v1:0"
-    REGION_NAME = "us-east-1"
-
     def __init__(self):
         auth_prompt = ChatPromptTemplate.from_messages(
             [
@@ -25,15 +22,21 @@ class AuthAgent(BaseAgent):
                     "system",
                     """You are an authentication assistant for voice interactions.
 
-                    Your ONLY role is to verify user identity. Do not answer questions about accounts, balances, transactions, or any other topics.
+                    Your ONLY role is to verify user identity which is needed for account access. Do not answer questions about accounts, balances, transactions, or any other topics.
 
                     Authentication process:
                     - Collect: first name, last name, and date of birth
-                    - Verify the information
+                    - Verify the information using authenticate_user tool
                     - Confirm success or failure
+                    - ONLY Use complete_or_escalate_tool when authentication is complete. 
+
+                    When to use complete_or_escalate_tool:
+                    - Authentication successful: cancel=True, reason="Authentication completed successfully"
+                    - Authentication failed after multiple attempts: cancel=True, reason="Authentication failed after verification"
 
                     If user asks about anything else:
-                    - Do NOT provide suggestions or alternatives
+                    - Politely redirect them to authentication first
+                    - Do NOT use any tools, just respond with text
 
                     Current status: {user_authenticated}
 
@@ -49,9 +52,6 @@ class AuthAgent(BaseAgent):
                     - "What's your date of birth? Month, day, and year please."
                     - "Thanks! You're all verified."
                     - "I couldn't verify those details. Let's try again."
-
-                    Off-topic questions:
-                    - "Let me verify your identity first. What's your first name?"
                     """,
                 ),
                 MessagesPlaceholder(variable_name="messages"),
@@ -60,7 +60,7 @@ class AuthAgent(BaseAgent):
 
         llm = BedrockClientFactory.get_latency_optimized_llm_with_guardrails()
 
-        tools = [authenticate_user]
+        tools = [authenticate_user, complete_or_escalate_tool]
 
         runnable = auth_prompt | llm.bind_tools(tools)
         super().__init__(runnable, tools)
@@ -70,20 +70,7 @@ class AuthAgent(BaseAgent):
 
         logger.info("Auth agent invoked:", {"result": result})
 
-        if state.get("next_agent") and state.get("user_authenticated", True):
-            logger.info(
-                "Auth agent routing to next agent:", {"next_agent": state["next_agent"]}
-            )
-            return Command(
-                goto=state["next_agent"],
-                update={
-                    "next_agent": None,
-                    "current_agent": None,
-                    "messages": [result],
-                },
-            )
-        else:
-            return Command(goto=END, update={"messages": [result]})
+        return Command(update={"messages": [result]})
 
 
 def auth_agent_next_step(state):
@@ -94,7 +81,7 @@ def auth_agent_next_step(state):
         state: The state object containing messages
 
     Returns:
-        str: Either "auth_tool_node" or END
+        str: Either "auth_tool_node", "complete_or_escalate_tool", or END
     """
     messages = state.get("messages", [])
 
@@ -102,6 +89,18 @@ def auth_agent_next_step(state):
         return END
 
     last_message = messages[-1]
+
+    # Check if we just processed a CompleteOrEscalate tool result
+    if (
+        hasattr(last_message, "type")
+        and last_message.type == "tool"
+        and hasattr(last_message, "name")
+        and last_message.name == "complete_or_escalate_tool"
+    ):
+        logger.info(
+            "Auth agent escalating to supervisor after CompleteOrEscalate tool result"
+        )
+        return "leave_skill"
 
     # Check if last_message has tool_calls and it's a non-empty list
     if (

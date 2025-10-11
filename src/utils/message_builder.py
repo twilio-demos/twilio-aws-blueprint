@@ -59,7 +59,8 @@ class AgentMessageBuilder:
         if isinstance(ai_message.content, str):
             self.add_text(ai_message.content)
         elif isinstance(ai_message.content, list):
-            for block in ai_message.content:
+            for i, block in enumerate(ai_message.content):
+                logger.debug(f"Processing block {i}: {block} (type: {type(block)})")
                 if isinstance(block, dict):
                     if block.get("type") == "text":
                         self.add_text(block.get("text", ""))
@@ -106,6 +107,10 @@ class AgentMessageBuilder:
                             result=None,  # Will be filled when tool result is available
                         )
                         self.add_tool_call(tool_call)
+                else:
+                    logger.warning(
+                        f"Expected dict but got {type(block)} for content block {i}: {block}"
+                    )
 
         # Handle LangChain tool calls
         if hasattr(ai_message, "tool_calls") and ai_message.tool_calls:
@@ -131,6 +136,9 @@ class AgentMessageBuilder:
                             logger.warning("Using default name for missing tool name")
 
                         tool_args = tool_call.get("args")
+                        logger.debug(
+                            f"Extracted tool_args: {tool_args} (type: {type(tool_args)})"
+                        )
                         if not isinstance(tool_args, dict):
                             logger.warning(
                                 f"Invalid args type {type(tool_args)}: {tool_args}, using empty dict"
@@ -139,6 +147,9 @@ class AgentMessageBuilder:
 
                         logger.debug(
                             f"Creating ToolCall with id={tool_id}, name={tool_name}, args={tool_args}"
+                        )
+                        logger.debug(
+                            f"ToolCall args type: {type(tool_args)}, value: {tool_args}"
                         )
                         tc = ToolCall(
                             id=tool_id,
@@ -152,6 +163,9 @@ class AgentMessageBuilder:
                         tool_id = getattr(tool_call, "id", None) or str(uuid.uuid4())
                         tool_name = getattr(tool_call, "name", "unknown_tool")
                         tool_args = getattr(tool_call, "args", {})
+                        logger.debug(
+                            f"Extracted object tool_args: {tool_args} (type: {type(tool_args)})"
+                        )
 
                         if not isinstance(tool_args, dict):
                             logger.warning(
@@ -161,6 +175,9 @@ class AgentMessageBuilder:
 
                         logger.debug(
                             f"Creating ToolCall from object with id={tool_id}, name={tool_name}, args={tool_args}"
+                        )
+                        logger.debug(
+                            f"ToolCall object args type: {type(tool_args)}, value: {tool_args}"
                         )
                         tc = ToolCall(
                             id=tool_id,

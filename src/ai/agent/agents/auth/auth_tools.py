@@ -8,9 +8,8 @@ from langchain_core.messages import ToolMessage
 from langchain_core.tools import InjectedToolCallId, tool
 from langgraph.types import Command
 
+from src.ai.agent.data.mock_database import get_database
 from src.utils.logger import get_logger
-
-from ...data.mock_database import get_database
 
 logger = get_logger(__name__)
 
@@ -65,7 +64,7 @@ def authenticate_user(
                     "user_authenticated": True,
                     "messages": [
                         ToolMessage(
-                            content="User authenticated successfully.",
+                            content="User authenticated successfully. Go ahead and use the complete_or_escalate_tool.",
                             tool_call_id=tool_call_id,
                         )
                     ],

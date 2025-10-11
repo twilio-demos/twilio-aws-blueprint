@@ -1,4 +1,4 @@
-from langchain_aws import AmazonKnowledgeBasesRetriever, ChatBedrockConverse
+from langchain_aws import AmazonKnowledgeBasesRetriever
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
@@ -6,6 +6,8 @@ from langgraph.graph import END
 from langgraph.types import Command
 
 from src.ai.agent.core.agent_config import agent_config
+from src.ai.agent.core.bedrock import BedrockClientFactory
+from src.ai.agent.tools.complete_or_escalate import complete_or_escalate_tool
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -41,6 +43,7 @@ class KnowledgeBaseAgent:
         kb_prompt = ChatPromptTemplate.from_messages(
             [
                 (
+                    "system",
                     """You are a banking information specialist at Owl Bank helping customers over the phone.
 
                         Answer questions using only the information from the knowledge base. If you don't find the answer, simply say "I don't have that information available right now."
@@ -51,14 +54,24 @@ class KnowledgeBaseAgent:
                         - Break complex information into digestible pieces
                         - If information is lengthy, summarize key points first
 
+                        When to use complete_or_escalate_tool:
+                        - General banking question fully answered: cancel=True, reason="Banking information provided successfully"
+                        - Information not available in knowledge base after search: cancel=True, reason="Information not available, user needs further assistance"
+
+                        If user asks about personal account details or non-banking topics:
+                        - Politely redirect them to appropriate topics
+                        - Do NOT use any tools for redirects, just respond with text
+
                         Stay friendly, professional, and concise. Focus on what the customer needs to know.
-                """
+                        Do NOT mention specialists, agents, transfers or routing in your responses.
+                """,
                 ),
                 MessagesPlaceholder(variable_name="messages"),
             ]
         )
-        llm = ChatBedrockConverse(model=self.MODEL_NAME, region_name=self.REGION_NAME)
-        tools = [knowledge_base_search]
+        llm = BedrockClientFactory.get_latency_optimized_llm_with_guardrails()
+        # llm = ChatBedrockConverse(model=self.MODEL_NAME, region_name=self.REGION_NAME)
+        tools = [knowledge_base_search, complete_or_escalate_tool]
         runnable = kb_prompt | llm.bind_tools(tools)
         self.runnable = runnable
         self.tools = tools
@@ -70,10 +83,32 @@ class KnowledgeBaseAgent:
 
 
 def kb_agent_next_step(state):
+    """
+    Determines the next step in the KB agent workflow.
+
+    Args:
+        state: The state object containing messages
+
+    Returns:
+        str: Either "kb_tool_node", "supervisor", or END
+    """
     messages = state.get("messages", [])
     if not messages:
         return END
     last_message = messages[-1]
+
+    # Check if we just processed a CompleteOrEscalate tool result
+    if (
+        hasattr(last_message, "type")
+        and last_message.type == "tool"
+        and hasattr(last_message, "name")
+        and last_message.name == "complete_or_escalate_tool"
+    ):
+        logger.info(
+            "KB agent escalating to supervisor after CompleteOrEscalate tool result"
+        )
+        return "leave_skill"
+
     if (
         hasattr(last_message, "tool_calls")
         and isinstance(last_message.tool_calls, list)

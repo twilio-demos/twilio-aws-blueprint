@@ -4,9 +4,8 @@ from langchain_core.messages import ToolMessage
 from langchain_core.tools import InjectedToolCallId, tool
 from langgraph.types import Command
 
+from src.ai.agent.data.mock_database import get_database
 from src.utils.logger import get_logger
-
-from ...data.mock_database import get_database
 
 logger = get_logger(__name__)
 
