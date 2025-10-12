@@ -6,17 +6,28 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-retriever = AmazonKnowledgeBasesRetriever(
-    knowledge_base_id=agent_config.knowledge_base_id,
-    retrieval_config=agent_config.retrieval_config,
-    min_score_confidence=agent_config.min_score_confidence,
-    region_name=agent_config.region_name,
-)
+# Check if knowledge base is configured
+if not agent_config.knowledge_base_id:
+    logger.warning("Knowledge Base not configured: BEDROCK_KB_ID environment variable is not set. KB agent will be disabled.")
+    retriever = None
+else:
+    logger.info(f"Initializing Knowledge Base retriever with ID: {agent_config.knowledge_base_id}")
+    retriever = AmazonKnowledgeBasesRetriever(
+        knowledge_base_id=agent_config.knowledge_base_id,
+        retrieval_config=agent_config.retrieval_config,
+        min_score_confidence=agent_config.min_score_confidence,
+        region_name=agent_config.region_name,
+    )
 
 
 @tool
 def knowledge_base_search(query: str) -> str:
     """Search the Bedrock Knowledge Base for information."""
+
+    # Check if knowledge base is configured
+    if retriever is None:
+        logger.warning("Knowledge base search attempted but KB is not configured")
+        return "Knowledge base is not configured. Please set the BEDROCK_KB_ID environment variable."
 
     try:
         # Log the query for debugging

@@ -19,8 +19,12 @@ from src.ai.agent.agents.kb.kb_agent import (
     knowledge_base_search,
 )
 from src.ai.agent.agents.supervisor.supervisor_agent import SupervisorAgent
+from src.ai.agent.core.agent_config import agent_config
 from src.ai.agent.models.state import AgentState
 from src.ai.agent.tools.complete_or_escalate import complete_or_escalate_tool
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 # This node will be shared for exiting all specialized assistants
@@ -62,9 +66,15 @@ class AgentGraph:
             [account_info, account_balance, complete_or_escalate_tool]
         )
 
-        # Initialize KB agent and tool node
-        self.kb_agent = KnowledgeBaseAgent()
-        self.kb_tool_node = ToolNode([knowledge_base_search, complete_or_escalate_tool])
+        # Initialize KB agent and tool node only if knowledge base is configured
+        self.kb_enabled = bool(agent_config.knowledge_base_id)
+        if self.kb_enabled:
+            self.kb_agent = KnowledgeBaseAgent()
+            self.kb_tool_node = ToolNode([knowledge_base_search, complete_or_escalate_tool])
+        else:
+            logger.warning("Knowledge Base agent disabled: BEDROCK_KB_ID not configured")
+            self.kb_agent = None
+            self.kb_tool_node = None
 
         # Create the graph
         self.graph = self._build_graph()
@@ -75,11 +85,17 @@ class AgentGraph:
         graph.add_node("supervisor", self.supervisor)
         graph.add_node("auth_agent", self.auth_agent)
         graph.add_node("account_agent", self.account_agent)
-        graph.add_node("kb_agent", self.kb_agent)
+        
+        # Only add KB agent if knowledge base is configured
+        if self.kb_enabled and self.kb_agent is not None:
+            graph.add_node("kb_agent", self.kb_agent)
 
         graph.add_node("auth_tool_node", self.auth_tool_node)
         graph.add_node("account_tool_node", self.account_tool_node)
-        graph.add_node("kb_tool_node", self.kb_tool_node)
+        
+        # Only add KB tool node if knowledge base is configured
+        if self.kb_enabled and self.kb_tool_node is not None:
+            graph.add_node("kb_tool_node", self.kb_tool_node)
 
         # Add coordination edges
         graph.add_edge(START, "supervisor")
@@ -104,15 +120,20 @@ class AgentGraph:
             },
         )
 
-        graph.add_conditional_edges(
-            "kb_agent",
-            kb_agent_next_step,
-            {"kb_tool_node": "kb_tool_node", "leave_skill": "leave_skill", END: END},
-        )
+        # Only add KB agent conditional edges if knowledge base is configured
+        if self.kb_enabled and self.kb_agent is not None:
+            graph.add_conditional_edges(
+                "kb_agent",
+                kb_agent_next_step,
+                {"kb_tool_node": "kb_tool_node", "leave_skill": "leave_skill", END: END},
+            )
 
         graph.add_edge("auth_tool_node", "auth_agent")
         graph.add_edge("account_tool_node", "account_agent")
-        graph.add_edge("kb_tool_node", "kb_agent")
+        
+        # Only add KB tool edge if knowledge base is configured
+        if self.kb_enabled and self.kb_tool_node is not None:
+            graph.add_edge("kb_tool_node", "kb_agent")
 
         graph.add_node("leave_skill", pop_dialog_state)
         graph.add_edge("leave_skill", "supervisor")

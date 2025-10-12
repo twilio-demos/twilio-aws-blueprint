@@ -28,8 +28,8 @@ class AgentConfig:
 
     def _load_config(self) -> None:
         """Load configuration from environment variables."""
-        self.knowledge_base_id = os.getenv("BEDROCK_KB_ID", "NCWLZCBIRG")
-        self.region_name = os.getenv("BEDROCK_REGION", "us-east-2")
+        self.knowledge_base_id = os.getenv("BEDROCK_KB_ID", None)
+        self.region_name = os.getenv("BEDROCK_REGION", "us-east-1")
         self.retrieval_config: Dict[str, Any] = {
             "vectorSearchConfiguration": {"numberOfResults": 5}
         }
