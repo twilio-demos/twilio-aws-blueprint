@@ -1,11 +1,11 @@
 """Authentication agent for handling user authentication and verification."""
 
-from auth_tools import authenticate_user
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END
 from langgraph.types import Command
 
+from src.ai.agent.agents.auth.auth_tools import authenticate_user
 from src.ai.agent.agents.base_agent import BaseAgent
 from src.ai.agent.core.bedrock import BedrockClientFactory
 from src.ai.agent.tools.complete_or_escalate import complete_or_escalate_tool

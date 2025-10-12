@@ -1,44 +1,39 @@
-from langchain_aws import AmazonKnowledgeBasesRetriever
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableConfig
-from langchain_core.tools import tool
 from langgraph.graph import END
 from langgraph.types import Command
 
-from src.ai.agent.core.agent_config import agent_config
+from src.ai.agent.agents.kb.kb_tools import knowledge_base_search
 from src.ai.agent.core.bedrock import BedrockClientFactory
 from src.ai.agent.tools.complete_or_escalate import complete_or_escalate_tool
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-retriever = AmazonKnowledgeBasesRetriever(
-    knowledge_base_id=agent_config.knowledge_base_id,
-    retrieval_config=agent_config.retrieval_config,
-    min_score_confidence=agent_config.min_score_confidence,
-    region_name=agent_config.region_name,
-)
+# retriever = AmazonKnowledgeBasesRetriever(
+#     knowledge_base_id=agent_config.knowledge_base_id,
+#     retrieval_config=agent_config.retrieval_config,
+#     min_score_confidence=agent_config.min_score_confidence,
+#     region_name=agent_config.region_name,
+# )
 
 
-@tool
-def knowledge_base_search(query: str) -> str:
-    """Search the Bedrock Knowledge Base for information."""
+# @tool
+# def knowledge_base_search(query: str) -> str:
+#     """Search the Bedrock Knowledge Base for information."""
 
-    try:
-        # Log the query for debugging
-        logger.info("Knowledge base search invoked:", {"query": query})
-        docs = retriever.invoke(query)
-        logger.info("Knowledge base search results:", {"num_docs": len(docs)})
-        return "\n\n".join([doc.page_content for doc in docs])
-    except Exception as e:
-        logger.error("Error during knowledge base search:", {"error": str(e)})
-        return "I encountered an error while searching the knowledge base."
+#     try:
+#         # Log the query for debugging
+#         logger.info("Knowledge base search invoked:", {"query": query})
+#         docs = retriever.invoke(query)
+#         logger.info("Knowledge base search results:", {"num_docs": len(docs)})
+#         return "\n\n".join([doc.page_content for doc in docs])
+#     except Exception as e:
+#         logger.error("Error during knowledge base search:", {"error": str(e)})
+#         return "I encountered an error while searching the knowledge base."
 
 
 class KnowledgeBaseAgent:
-    MODEL_NAME = "us.anthropic.claude-3-5-haiku-20241022-v1:0"
-    REGION_NAME = "us-east-1"
-
     def __init__(self):
         kb_prompt = ChatPromptTemplate.from_messages(
             [
@@ -70,7 +65,6 @@ class KnowledgeBaseAgent:
             ]
         )
         llm = BedrockClientFactory.get_latency_optimized_llm_with_guardrails()
-        # llm = ChatBedrockConverse(model=self.MODEL_NAME, region_name=self.REGION_NAME)
         tools = [knowledge_base_search, complete_or_escalate_tool]
         runnable = kb_prompt | llm.bind_tools(tools)
         self.runnable = runnable

@@ -4,10 +4,10 @@ import uuid
 from decimal import Decimal
 from typing import AsyncGenerator
 
-from agent_graph import AgentGraph
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 
+from src.ai.agent.core.agent_graph import AgentGraph
 from src.ai.agent.models.state import AgentState
 from src.services.threadservice import instance as thread_service
 from src.types.models import MessageType

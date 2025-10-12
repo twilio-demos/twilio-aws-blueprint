@@ -1,11 +1,11 @@
 """Account information agent for handling account-related requests."""
 
-from account_tools import account_balance, account_info
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END
 from langgraph.types import Command
 
+from src.ai.agent.agents.account_info.account_tools import account_balance, account_info
 from src.ai.agent.agents.base_agent import BaseAgent
 from src.ai.agent.core.bedrock import BedrockClientFactory
 from src.ai.agent.tools.complete_or_escalate import complete_or_escalate_tool
