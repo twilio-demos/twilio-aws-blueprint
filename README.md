@@ -84,7 +84,21 @@ requirements.txt                 # Python dependencies
    # Edit .env with your Twilio credentials
    ```
 
-3. **Run locally**:
+3. **AWS Setup**:
+
+   Configure AWS SSO for accessing AWS services (required for AI agents and DynamoDB):
+
+   ```bash
+   # Configure AWS SSO (one-time setup)
+   aws configure sso
+
+   # Login to AWS SSO (run this whenever your session expires)
+   source ./aws-sso-login.sh
+   ```
+
+   Note: The `aws-sso-login.sh` script helps maintain your AWS session for local development. You'll need to run this periodically when your AWS credentials expire.
+
+4. **Run locally**:
 
    ```bash
    # Direct FastAPI
@@ -95,7 +109,7 @@ requirements.txt                 # Python dependencies
    docker-compose up --build
    ```
 
-4. **Test endpoints**:
+5. **Test endpoints**:
    ```bash
    curl http://localhost:8000/
    curl http://localhost:8000/call/twiml
