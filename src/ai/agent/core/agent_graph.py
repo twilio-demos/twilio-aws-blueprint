@@ -70,9 +70,13 @@ class AgentGraph:
         self.kb_enabled = bool(agent_config.knowledge_base_id)
         if self.kb_enabled:
             self.kb_agent = KnowledgeBaseAgent()
-            self.kb_tool_node = ToolNode([knowledge_base_search, complete_or_escalate_tool])
+            self.kb_tool_node = ToolNode(
+                [knowledge_base_search, complete_or_escalate_tool]
+            )
         else:
-            logger.warning("Knowledge Base agent disabled: BEDROCK_KB_ID not configured")
+            logger.warning(
+                "Knowledge Base agent disabled: BEDROCK_KB_ID not configured"
+            )
             self.kb_agent = None
             self.kb_tool_node = None
 
@@ -85,14 +89,14 @@ class AgentGraph:
         graph.add_node("supervisor", self.supervisor)
         graph.add_node("auth_agent", self.auth_agent)
         graph.add_node("account_agent", self.account_agent)
-        
+
         # Only add KB agent if knowledge base is configured
         if self.kb_enabled and self.kb_agent is not None:
             graph.add_node("kb_agent", self.kb_agent)
 
         graph.add_node("auth_tool_node", self.auth_tool_node)
         graph.add_node("account_tool_node", self.account_tool_node)
-        
+
         # Only add KB tool node if knowledge base is configured
         if self.kb_enabled and self.kb_tool_node is not None:
             graph.add_node("kb_tool_node", self.kb_tool_node)
@@ -125,12 +129,16 @@ class AgentGraph:
             graph.add_conditional_edges(
                 "kb_agent",
                 kb_agent_next_step,
-                {"kb_tool_node": "kb_tool_node", "leave_skill": "leave_skill", END: END},
+                {
+                    "kb_tool_node": "kb_tool_node",
+                    "leave_skill": "leave_skill",
+                    END: END,
+                },
             )
 
         graph.add_edge("auth_tool_node", "auth_agent")
         graph.add_edge("account_tool_node", "account_agent")
-        
+
         # Only add KB tool edge if knowledge base is configured
         if self.kb_enabled and self.kb_tool_node is not None:
             graph.add_edge("kb_tool_node", "kb_agent")

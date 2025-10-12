@@ -4,6 +4,7 @@ from langgraph.graph import END
 from langgraph.types import Command
 
 from src.ai.agent.agents.base_agent import BaseAgent
+from src.ai.agent.core.agent_config import agent_config
 from src.ai.agent.core.bedrock import BedrockClientFactory
 from src.utils.logger import get_logger
 
@@ -15,21 +16,40 @@ class SupervisorAgent(BaseAgent):
     REGION_NAME = "us-east-1"
 
     def __init__(self):
+        # Check if KB agent is available
+        kb_enabled = bool(agent_config.knowledge_base_id)
+
+        # Build routing instructions based on available agents
+        routing_instructions = """Route requests as follows:
+                    - 'auth_agent' for identity verification
+                    - 'account_agent' for account inquiries (balance, transactions, account details)"""
+
+        if kb_enabled:
+            routing_instructions += """
+                    - 'kb_agent' ONLY for general banking information like FDIC coverage"""
+
+        routing_instructions += """
+                    - 'FINISH' when the customer's request is complete and conversation should end"""
+
+        # Build valid agent list for validation
+        valid_agents = ["auth_agent", "account_agent", "finish"]
+        if kb_enabled:
+            valid_agents.append("kb_agent")
+
+        self.valid_agents = valid_agents
+        self.kb_enabled = kb_enabled
+
         supervisor_prompt = ChatPromptTemplate.from_messages(
             [
                 (
                     "system",
-                    """
+                    f"""
                     You are the main coordinator for Owl Bank Customer Support on a voice call.
 
                     Your role is to silently route requests to the appropriate specialist based on the customer's needs. 
                     Do NOT mention specialists, agents, or routing in your responses.
 
-                    Route requests as follows:
-                    - 'auth_agent' for identity verification
-                    - 'account_agent' for account inquiries (balance, transactions, account details)
-                    - 'kb_agent' ONLY for general banking information like FDIC coverage
-                    - 'FINISH' when the customer's request is complete and conversation should end
+                    {routing_instructions}
 
                     VOICE CHANNEL GUIDELINES:
                     - Keep responses brief and conversational
@@ -38,7 +58,7 @@ class SupervisorAgent(BaseAgent):
                     - The customer should never know they're being routed between specialists
 
                     Based on the MOST RECENT exchange, which specialist should handle this?
-                    Respond with ONLY one of: auth_agent, account_agent, kb_agent, FINISH""",
+                    Respond with ONLY one of: {", ".join(valid_agents)}""",
                 ),
                 ("placeholder", "{messages}"),
             ]
@@ -90,7 +110,7 @@ class SupervisorAgent(BaseAgent):
             )
 
         # TODO: Add more robust validation, possibly using route to a general_agent
-        if next_agent not in ["auth_agent", "account_agent", "kb_agent", "finish"]:
+        if next_agent not in self.valid_agents:
             next_agent = "auth_agent"
 
         logger.info("SupervisorAgent decided next_agent:", {"next_agent": next_agent})
