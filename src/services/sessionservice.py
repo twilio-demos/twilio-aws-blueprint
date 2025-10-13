@@ -48,6 +48,7 @@ class SessionService(DynamoDBService):
         hints: Optional[str],
         language: Optional[str],
         old_session: Session,
+        resume_error: bool,
     ) -> Session:
         """
         Restores a previous session to a new session.
@@ -64,6 +65,11 @@ class SessionService(DynamoDBService):
             session.Config.Hints = hints
         if language is not None:
             session.Config.Lang = language
+
+        if resume_error:
+            # If the resume is occurring due to an error, track the number of errors to prevent infinite reconnect loops
+            errors = session.SessionState.get("resume_error_attempts", 0)
+            session.SessionState["resume_error_attempts"] = int(errors) + 1
 
         self.sessions[session_id] = session
         super()._add_item(session)

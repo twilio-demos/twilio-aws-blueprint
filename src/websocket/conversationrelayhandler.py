@@ -103,16 +103,25 @@ class ConversationRelayHandler:
                 and old_session.CallSid == message.customParameters["resume_call_sid"]
             ):
                 new_session = False
+                resume_error = (
+                    message.customParameters.get("resume_error", "false") == "true"
+                )
                 logger.info(
                     "Restoring previous session",
                     {
                         "callSid": self.call_sid,
                         "oldSession": old_session.SessionId,
                         "newSession": self.session_id,
+                        "hadError": resume_error,
                     },
                 )
                 self.session_service.restore(
-                    self.call_sid, self.session_id, hints, language, old_session
+                    self.call_sid,
+                    self.session_id,
+                    hints,
+                    language,
+                    old_session,
+                    resume_error,
                 )
                 self.thread_service.get(old_session.ThreadId)
                 self.thread_id = old_session.ThreadId
