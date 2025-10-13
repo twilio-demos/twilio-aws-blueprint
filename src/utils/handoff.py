@@ -31,7 +31,7 @@ def handle_handoff(request: Request, session: Optional[Session]):
                 if "language" in handoff_data:
                     language = handoff_data.get("language")
                 elif session is not None:
-                    language = session.Config.Language
+                    language = session.Config.Lang
 
                 twiml_response = create_initial_twiml(
                     action_url,
