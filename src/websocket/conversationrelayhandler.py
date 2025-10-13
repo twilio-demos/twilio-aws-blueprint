@@ -82,12 +82,9 @@ class ConversationRelayHandler:
         greeting = WELCOME_GREETING
         if message.customParameters is not None:
             # Persist custom settings to the session
-            if "initial_hints" in message.customParameters:
-                hints = message.customParameters["initial_hints"]
-            if "initial_language" in message.customParameters:
-                language = message.customParameters["initial_language"]
-            if "initial_greeting" in message.customParameters:
-                greeting = message.customParameters["initial_greeting"]
+            hints = message.customParameters.get("initial_hints", hints)
+            language = message.customParameters.get("initial_language", language)
+            greeting = message.customParameters.get("initial_greeting", greeting)
 
         if (
             message.customParameters is not None
