@@ -115,8 +115,6 @@ requirements.txt                 # Python dependencies
 
 ### Optional Configuration
 
-For valid parameters for text-to-speech and speech-to-text configuration, please consult the [ConversationRelay documentation](https://www.twilio.com/docs/voice/conversationrelay/conversationrelay-noun).
-
 | Variable                | Description                                                        | Default                                  |
 |-------------------------|--------------------------------------------------------------------|------------------------------------------|
 | `LOG_LEVEL`             | Logging level                                                      | `INFO`                                   |
@@ -131,6 +129,8 @@ For valid parameters for text-to-speech and speech-to-text configuration, please
 ### Optional Language Configuration
 
 For each of the below options, you may include multiple values separated by `|` (pipe) in order to specify configuration for multiple languages. If you do so, each option must include the same number of values.
+
+For valid parameters for text-to-speech and speech-to-text configuration, please consult the [ConversationRelay documentation](https://www.twilio.com/docs/voice/conversationrelay/conversationrelay-noun).
 
 | Variable                | Description                                                        | Default                                  |
 |-------------------------|--------------------------------------------------------------------|------------------------------------------|
