@@ -2,7 +2,15 @@ from enum import Enum
 
 from pydantic import BaseModel
 
-from src.utils.env import DTMF_MAX_DIGITS, DTMF_TIMEOUT, IDLE_MAX_ATTEMPTS, IDLE_TIMEOUT
+from src.utils.env import (
+    DTMF_MAX_DIGITS,
+    DTMF_TIMEOUT,
+    IDLE_MAX_ATTEMPTS,
+    IDLE_TIMEOUT,
+    INITIAL_HINTS,
+    LANGUAGE,
+    SPLIT_CHAR,
+)
 
 
 class CallRequest(BaseModel):
@@ -29,6 +37,8 @@ class SessionIdleConfig(BaseModel):
 class SessionConfig(BaseModel):
     DTMF: SessionDTMFConfig = SessionDTMFConfig()
     Idle: SessionIdleConfig = SessionIdleConfig()
+    Hints: str = INITIAL_HINTS.split(SPLIT_CHAR)[0]
+    Lang: str = LANGUAGE.split(SPLIT_CHAR)[0]
 
 
 class Session(BaseModel):
@@ -38,7 +48,7 @@ class Session(BaseModel):
     SessionStatus: str = "in-progress"
     Created: str
     Config: SessionConfig = SessionConfig()
-    SessionState: dict[str, str | int | bool] | None = None
+    SessionState: dict[str, str | int | bool] = {}
 
 
 class MessageType(str, Enum):

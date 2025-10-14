@@ -1,4 +1,5 @@
 import json
+from typing import List
 
 from fastapi import WebSocket
 
@@ -12,6 +13,7 @@ from src.types.conversationrelay import (
     OutgoingMessage,
     PromptMessage,
     SetupMessage,
+    SwitchLanguageMessage,
     TextTokenMessage,
 )
 from src.types.models import MessageType
@@ -75,6 +77,14 @@ class ConversationRelayHandler:
         )
 
         new_session = True
+        hints = None
+        language = None
+        greeting = WELCOME_GREETING
+        if message.customParameters is not None:
+            # Persist custom settings to the session
+            hints = message.customParameters.get("initial_hints", hints)
+            language = message.customParameters.get("initial_language", language)
+            greeting = message.customParameters.get("initial_greeting", greeting)
 
         if (
             message.customParameters is not None
@@ -90,28 +100,37 @@ class ConversationRelayHandler:
                 and old_session.CallSid == message.customParameters["resume_call_sid"]
             ):
                 new_session = False
+                resume_error = (
+                    message.customParameters.get("resume_error", "false") == "true"
+                )
                 logger.info(
                     "Restoring previous session",
                     {
                         "callSid": self.call_sid,
                         "oldSession": old_session.SessionId,
                         "newSession": self.session_id,
+                        "hadError": resume_error,
                     },
                 )
                 self.session_service.restore(
-                    self.call_sid, self.session_id, old_session
+                    self.call_sid,
+                    self.session_id,
+                    hints,
+                    language,
+                    old_session,
+                    resume_error,
                 )
                 self.thread_service.get(old_session.ThreadId)
                 self.thread_id = old_session.ThreadId
 
         if new_session:
-            session = self.session_service.create(self.call_sid, self.session_id)
+            session = self.session_service.create(
+                self.call_sid, self.session_id, hints, language
+            )
             self.thread_id = session.ThreadId
-            self.idle_minder.handle_activity(False, WELCOME_GREETING)
+            self.idle_minder.handle_activity(False, greeting)
             if self.thread_id is not None:
-                self.thread_service.append(
-                    self.thread_id, WELCOME_GREETING, MessageType.system
-                )
+                self.thread_service.append(self.thread_id, greeting, MessageType.system)
 
         # TODO: Initialize AI agent session
         # TODO: Send welcome message if needed
@@ -200,6 +219,27 @@ class ConversationRelayHandler:
 
         # TODO: Handle error appropriately
         # TODO: Maybe send fallback response
+
+    async def update_hints(self, hints: List[str], prompt: str):
+        newResponse = EndSessionMessage(
+            type="end",
+            handoffData=json.dumps(
+                {
+                    "result": "hint",
+                    "message": prompt,
+                    "hints": ",".join(hints) if len(hints) > 0 else "",
+                }
+            ),
+        )
+        await self.send_message(newResponse)
+
+    async def update_language(self, language: str):
+        newResponse = SwitchLanguageMessage(
+            type="language", ttsLanguage=language, transcriptionLanguage=language
+        )
+        await self.send_message(newResponse)
+        if self.call_sid is not None and self.session_id is not None:
+            session_service.update_language(self.call_sid, self.session_id, language)
 
     async def send_message(self, message: OutgoingMessage):
         """Send message to Twilio"""
