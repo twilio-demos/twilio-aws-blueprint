@@ -77,6 +77,9 @@ class AccountAgent(BaseAgent):
 
         logger.info("Account agent invoked:", {"result": result})
 
+        # Save agent message to DynamoDB
+        self._save_agent_message(result, "account_agent", config)
+
         return Command(
             update={
                 "messages": [result],
@@ -103,10 +106,10 @@ def account_agent_next_step(state):
 
     # Check if we just processed a CompleteOrEscalate tool result
     if (
-        hasattr(last_message, "type")
-        and last_message.type == "tool"
-        and hasattr(last_message, "name")
-        and last_message.name == "complete_or_escalate_tool"
+        hasattr(last_message, "tool_calls")
+        and isinstance(last_message.tool_calls, list)
+        and len(last_message.tool_calls) > 0
+        and last_message.tool_calls[0]["name"] == "complete_or_escalate_tool"
     ):
         logger.info(
             "Account agent escalating to supervisor after CompleteOrEscalate tool result"

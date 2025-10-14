@@ -148,14 +148,13 @@ class ConversationRelayHandler:
             message.voicePrompt, self.thread_id
         ):
             logger.debug("Stream chunk:", {"chunk": chunk})
-            if chunk:
-                response = TextTokenMessage(type="text", token=chunk, last=False)
+            if chunk["type"] == "content":
+                response = TextTokenMessage(
+                    type="text", token=str(chunk["data"]), last=False
+                )
                 logger.info("Sending text token to Twilio", {"text": response})
                 await self.send_message(response)
-                self.idle_minder.handle_activity(False, chunk)
-
-            if self.thread_id is not None:
-                self.thread_service.append(self.thread_id, chunk, MessageType.agent)
+                self.idle_minder.handle_activity(False, str(chunk["data"]))
 
     async def handle_dtmf_message(self, message: DTMFMessage):
         """Handle DTMF digit from caller"""

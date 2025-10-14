@@ -8,10 +8,14 @@ logger = get_logger(__name__)
 
 # Check if knowledge base is configured
 if not agent_config.knowledge_base_id:
-    logger.warning("Knowledge Base not configured: BEDROCK_KB_ID environment variable is not set. KB agent will be disabled.")
+    logger.warning(
+        "Knowledge Base not configured: BEDROCK_KB_ID environment variable is not set. KB agent will be disabled."
+    )
     retriever = None
 else:
-    logger.info(f"Initializing Knowledge Base retriever with ID: {agent_config.knowledge_base_id}")
+    logger.info(
+        f"Initializing Knowledge Base retriever with ID: {agent_config.knowledge_base_id}"
+    )
     retriever = AmazonKnowledgeBasesRetriever(
         knowledge_base_id=agent_config.knowledge_base_id,
         retrieval_config=agent_config.retrieval_config,

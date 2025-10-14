@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Literal, TypedDict
 
 from pydantic import BaseModel, field_validator
 
@@ -91,3 +92,8 @@ class Message(BaseModel):
 
     # New rich content fields
     RichContent: MessageContent | None = None
+
+
+class StreamChunk(TypedDict):
+    type: Literal["content", "agent", "metadata"]
+    data: str | dict

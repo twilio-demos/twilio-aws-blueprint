@@ -10,9 +10,9 @@ from langchain_core.runnables import RunnableConfig
 from src.ai.agent.core.agent_graph import AgentGraph
 from src.ai.agent.models.state import AgentState
 from src.services.threadservice import instance as thread_service
-from src.types.models import MessageType
+from src.types.models import MessageType, StreamChunk
 from src.utils.logger import get_logger
-from src.utils.message_builder import AgentMessageBuilder, create_user_message
+from src.utils.message_builder import create_user_message
 
 logger = get_logger(__name__)
 
@@ -40,7 +40,7 @@ class AIAgentRunner:
 
     async def stream_request(
         self, user_input: str, thread_id: str | None
-    ) -> AsyncGenerator[str, None]:
+    ) -> AsyncGenerator[StreamChunk, None]:
         """
         Process a user request with streaming responses.
 
@@ -54,112 +54,136 @@ class AIAgentRunner:
         logger.info("Streaming request:", {"user_input": user_input})
         logger.info("=" * 60)
 
-        # Store user message if thread_id is provided
+        # Update config with the provided thread_id so agents use the same thread_id
         if thread_id is not None:
-            user_message = create_user_message(thread_id, user_input)
-            self.thread_service.append_rich_message(user_message)
+            self.config = RunnableConfig(configurable={"thread_id": thread_id})
+            logger.info(f"🔗 Updated agent config to use thread_id: {thread_id}")
 
-        # Initialize message builder for agent response
-        message_builder = AgentMessageBuilder(thread_id or "unknown")
+        # User message saving is handled by the websocket handler
+        # Agent runner focuses on AI processing and agent message saving
 
         try:
             if not self.agent_graph.graph.get_state(self.config).values:
-                # Initialize with defaults
                 logger.info("Initializing agent state with defaults")
                 self.agent_graph.graph.update_state(
                     self.config,
                     {"messages": [], "user_authenticated": False, "username": None},
                 )
 
-            # Stream the execution of the agent graph messages
             for msg, metadata in self.agent_graph.graph.stream(
                 {"messages": [HumanMessage(content=user_input)]},
                 self.config,
                 stream_mode="messages",
             ):
-                try:
-                    # Handle different message types
-                    if isinstance(msg, HumanMessage):
-                        logger.info(f"[User] {msg.content}")
+                # Log message type and source
+                if isinstance(msg, AIMessage):
+                    sender = (
+                        metadata.get("langgraph_node")
+                        if isinstance(metadata, dict)
+                        else "unknown"
+                    )
+                    logger.info(f"Processing AIMessage from {sender}")
+                    logger.debug(
+                        f"AIMessage content preview: {str(msg.content)[:200]}..."
+                    )
+                elif isinstance(msg, ToolMessage):
+                    logger.info(f"Processing ToolMessage: {msg.name}")
+                else:
+                    logger.info(f"Processing {type(msg).__name__}")
 
-                    elif isinstance(msg, AIMessage):
-                        sender = None
-                        if metadata:
-                            if isinstance(metadata, dict):
-                                sender = metadata.get("langgraph_node")
-                            else:
-                                logger.warning(
-                                    f"Expected metadata to be dict, got {type(metadata)}: {metadata}"
-                                )
+                # Write message and metadata to debug file
+                self._write_debug_info(msg, metadata)
 
-                        # Process the AI message through the message builder
-                        message_builder.process_ai_message(msg, sender)
+                # Handle different message types
+                if isinstance(msg, HumanMessage):
+                    logger.info(f"[User] {msg.content}")
+                    logger.info(
+                        f"HumanMessage detected - Content: '{msg.content}', NOT saving (already saved)"
+                    )
 
-                        # Add metadata from LangGraph
-                        if metadata and isinstance(metadata, dict):
-                            # Convert metadata to safe types (avoid Decimal issues)
-                            safe_metadata = self.convert_decimals(metadata)
-                            message_builder.add_metadata(
-                                "langgraph_metadata", safe_metadata
+                elif isinstance(msg, AIMessage):
+                    sender = None
+                    if metadata:
+                        if isinstance(metadata, dict):
+                            sender = metadata.get("langgraph_node")
+                        else:
+                            logger.warning(
+                                f"Expected metadata to be dict, got {type(metadata)}: {metadata}"
                             )
 
-                        # Skip SupervisorAgent outputs (control messages) from streaming
-                        if sender == "supervisor":
-                            logger.info(f"[Supervisor] {msg.content}")
-                            continue
+                    # Skip supervisor messages entirely - they are internal routing decisions
+                    if sender == "supervisor":
+                        logger.info(f"[Supervisor] {msg.content}")
+                        continue
 
-                        # Stream the content to user
-                        if isinstance(msg.content, str):
-                            if msg.content.strip():  # Only yield non-empty content
-                                yield msg.content
-                        elif isinstance(msg.content, list):
-                            if len(msg.content) == 0:  # Handle empty lists
-                                logger.debug("Skipping empty content list")
-                                continue
-                            for i, block in enumerate(msg.content):
-                                logger.debug(
-                                    f"Processing content block {i}: {block} (type: {type(block)})"
-                                )
-                                if isinstance(block, dict):
-                                    if block.get("type") == "text":
-                                        text = block.get("text", "")
-                                        if text.strip():  # Only yield non-empty text
-                                            yield text
-                                else:
-                                    logger.warning(
-                                        f"Expected dict but got {type(block)} for block {i}: {block}"
-                                    )
+                    # Emit agent change event
+                    if sender:
+                        yield {"type": "agent", "data": sender}
 
-                    elif isinstance(msg, ToolMessage):
-                        # Process tool results
-                        message_builder.process_tool_message(msg)
-                        logger.info(f"[Tool Result] {msg.content}")
+                    # Stream metadata for evals but don't persist to DynamoDB
+                    if metadata and isinstance(metadata, dict):
+                        # Convert metadata to safe types (avoid Decimal issues)
+                        safe_metadata = self.convert_decimals(metadata)
 
-                except Exception as e:
-                    logger.error(f"Error processing message {type(msg)}: {e}")
-                    logger.error(f"Message: {msg}")
-                    logger.error(f"Metadata: {metadata}")
-                    raise
+                        # Optionally stream full metadata for evals
+                        yield {
+                            "type": "metadata",
+                            "data": {"agent": sender, "metadata": safe_metadata},
+                        }
 
-            # Store the complete agent message if we have content and a thread_id
-            if thread_id is not None and message_builder.has_content():
-                agent_message = message_builder.build()
-                print("agent_message:", agent_message)
+                    # Stream content as it arrives
+                    if isinstance(msg.content, str):
+                        if msg.content:  # Only stream non-empty content
+                            yield {"type": "content", "data": msg.content}
 
-                self.thread_service.append_rich_message(agent_message)
+                    elif isinstance(msg.content, list):
+                        # Stream text content as it arrives
+                        for block in msg.content:
+                            if isinstance(block, dict):
+                                if block.get("type") == "text":
+                                    text = block.get("text", "")
+                                    if text:
+                                        yield {"type": "content", "data": text}
+
+                elif isinstance(msg, ToolMessage):
+                    # Log the tool result
+                    logger.info(f"[Tool Result] {msg.content}")
+
+            logger.info("🔍 Stream completed")
 
         except Exception as e:
             import traceback
 
             error_msg = f"Streaming error: {str(e)}"
-            logger.error(f"❌ {error_msg}")
+            logger.error(f"{error_msg}")
             logger.error(f"Full traceback: {traceback.format_exc()}")
 
-            # Store error message if thread_id is provided
             if thread_id is not None:
                 error_message = create_user_message(thread_id, f"Error: {error_msg}")
                 error_message.Type = MessageType.system
-                self.thread_service.append_rich_message(error_message)
+                # self.thread_service.append_rich_message(error_message)
+
+    def _write_debug_info(self, msg, metadata):
+        """Write message and metadata to debug file."""
+        import json
+        from datetime import datetime
+
+        debug_data = {
+            "timestamp": datetime.now().isoformat(),
+            "message": {
+                "type": type(msg).__name__,
+                "content": str(msg.content) if hasattr(msg, "content") else str(msg),
+                "tool_calls": getattr(msg, "tool_calls", None),
+                "additional_kwargs": getattr(msg, "additional_kwargs", None),
+            },
+            "metadata": metadata,
+        }
+
+        try:
+            with open("debug_messages.jsonl", "a") as f:
+                f.write(json.dumps(debug_data, default=str) + "\n")
+        except Exception as e:
+            logger.error(f"Failed to write debug info: {e}")
 
     def convert_decimals(self, obj):
         """Convert metadata to DynamoDB-safe types."""

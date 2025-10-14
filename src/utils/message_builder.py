@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
-from langchain_core.messages import AIMessage, ToolMessage
+from langchain_core.messages import AIMessage
 
 from src.types.models import Message, MessageContent, MessageType, ToolCall
 from src.utils.logger import get_logger
@@ -24,6 +24,188 @@ class AgentMessageBuilder:
         self.tool_calls: List[ToolCall] = []
         self.agent_name: str | None = None
         self.metadata: Dict[str, Any] = {}
+        self._streaming_blocks = {}
+
+    def process_ai_message(
+        self, ai_message: AIMessage, sender: str | None = None
+    ) -> None:
+        """
+        Process a LangChain AIMessage and extract all relevant information.
+        Handles streaming where blocks arrive in chunks.
+        """
+        if sender:
+            self.set_agent_name(sender)
+
+        # Handle different content types
+        if isinstance(ai_message.content, str):
+            self.add_text(ai_message.content)
+        elif isinstance(ai_message.content, list):
+            for block in ai_message.content:
+                logger.debug(f"Processing content block: {block} (type: {type(block)})")
+                try:
+                    if isinstance(block, dict):
+                        if block.get("type") == "text":
+                            self._process_text_block(block)
+                        elif block.get("type") == "tool_use":
+                            self._process_tool_use_block(block)
+                        else:
+                            logger.warning(
+                                f"Unknown block type: {block.get('type')} in block: {block}"
+                            )
+                    else:
+                        logger.warning(
+                            f"Expected dict block but got {type(block)}: {block}"
+                        )
+                except Exception as e:
+                    logger.error(f"Error processing block {block}: {e}")
+                    # Continue processing other blocks
+
+    def _process_text_block(self, block: dict) -> None:
+        """Process a text block (may be streaming)."""
+        try:
+            index = block.get("index")
+            text = block.get("text", "")
+
+            logger.debug(
+                f"Processing text block - index: {index}, text: '{text}', block: {block}"
+            )
+
+            if not text:
+                return
+
+            if index is not None:
+                # Streaming text - accumulate by index
+                if index not in self._streaming_blocks:
+                    self._streaming_blocks[index] = {
+                        "type": "text",
+                        "content": "",
+                        "is_finalized": False,
+                    }
+
+                # Safely access and update content
+                current_block = self._streaming_blocks[index]
+                if "content" in current_block:
+                    current_block["content"] += text
+                else:
+                    # Initialize content if it doesn't exist (shouldn't happen but be safe)
+                    logger.warning(
+                        f"Content key missing for streaming block {index}, initializing"
+                    )
+                    current_block["content"] = text
+            else:
+                # Non-streaming text - add directly
+                self.add_text(text)
+
+        except Exception as e:
+            logger.error(f"Error in _process_text_block with block {block}: {e}")
+            # Fallback: try to add text directly if possible
+            text = block.get("text", "")
+            if text:
+                self.add_text(text)
+
+    def _process_tool_use_block(self, block: dict) -> None:
+        """
+        Process a tool_use block, accumulating data across streaming chunks.
+        """
+        index = block.get("index")
+        if index is None:
+            logger.warning(f"tool_use block missing index: {block}")
+            return
+
+        # Get or create the accumulator for this tool call
+        if index not in self._streaming_blocks:
+            self._streaming_blocks[index] = {
+                "type": "tool_use",
+                "id": None,
+                "name": None,
+                "input": "",  # Accumulate as string
+                "is_finalized": False,
+            }
+
+        tool_data = self._streaming_blocks[index]
+
+        # Accumulate data from this chunk
+        if block.get("id") is not None:
+            tool_data["id"] = block["id"]
+
+        if block.get("name") is not None:
+            tool_data["name"] = block["name"]
+
+        if "input" in block:
+            input_chunk = block["input"]
+            if input_chunk:  # Only append non-empty chunks
+                tool_data["input"] += input_chunk
+
+    def finalize_streaming_blocks(self) -> None:
+        """
+        Finalize all accumulated streaming blocks.
+        Call this when you receive an empty content array [] or at end of stream.
+        """
+        for index, block_data in self._streaming_blocks.items():
+            if block_data["is_finalized"]:
+                continue
+
+            block_type = block_data["type"]
+
+            if block_type == "text":
+                # Finalize accumulated text
+                if block_data["content"]:
+                    self.add_text(block_data["content"])
+                    logger.debug(
+                        f"Finalized text block {index}: {len(block_data['content'])} chars"
+                    )
+
+            elif block_type == "tool_use":
+                # Finalize accumulated tool call
+                self._finalize_tool_call(index, block_data)
+
+            block_data["is_finalized"] = True
+
+    def _finalize_tool_call(self, index: int, tool_data: dict) -> None:
+        """Finalize and add a complete tool call."""
+        tool_id = tool_data["id"]
+        tool_name = tool_data["name"]
+        tool_input_str = tool_data["input"]
+
+        # Validate required fields - skip if missing critical data
+        if not tool_id:
+            logger.error(f"Cannot finalize tool call at index {index}: missing tool ID")
+            return
+
+        if not tool_name:
+            logger.error(
+                f"Cannot finalize tool call at index {index}: missing tool name"
+            )
+            return
+
+        # Parse the accumulated input
+        tool_input = {}
+        if tool_input_str:
+            try:
+                tool_input = json.loads(tool_input_str)
+                logger.debug(f"Parsed complete JSON input: {tool_input}")
+            except json.JSONDecodeError as e:
+                logger.error(
+                    f"Cannot finalize tool call at index {index}: invalid JSON input '{tool_input_str}': {e}"
+                )
+                return
+
+        logger.debug(
+            f"Finalizing tool call {index}: id={tool_id}, name={tool_name}, input={tool_input}"
+        )
+
+        tool_call = ToolCall(
+            id=tool_id,
+            name=tool_name,
+            arguments=tool_input,
+            result=None,
+        )
+
+        self.add_tool_call(tool_call)
+
+    def clear_streaming_state(self) -> None:
+        """Clear streaming state after processing is complete."""
+        self._streaming_blocks.clear()
 
     def add_text(self, text: str) -> None:
         """Add text content to the message."""
@@ -42,170 +224,7 @@ class AgentMessageBuilder:
         """Add metadata to the message."""
         self.metadata[key] = value
 
-    def process_ai_message(
-        self, ai_message: AIMessage, sender: str | None = None
-    ) -> None:
-        """
-        Process a LangChain AIMessage and extract all relevant information.
-
-        Args:
-            ai_message: The AIMessage from LangChain
-            sender: The name of the agent that sent this message
-        """
-        if sender:
-            self.set_agent_name(sender)
-
-        # Handle different content types
-        if isinstance(ai_message.content, str):
-            self.add_text(ai_message.content)
-        elif isinstance(ai_message.content, list):
-            for i, block in enumerate(ai_message.content):
-                logger.debug(f"Processing block {i}: {block} (type: {type(block)})")
-                if isinstance(block, dict):
-                    if block.get("type") == "text":
-                        self.add_text(block.get("text", ""))
-                    elif block.get("type") == "tool_use":
-                        # Handle tool use blocks
-                        tool_id = block.get("id")
-                        if not tool_id:
-                            tool_id = str(uuid.uuid4())
-                            logger.warning(
-                                f"Generated UUID for missing tool_use ID: {tool_id}"
-                            )
-
-                        tool_name = block.get("name")
-                        if not tool_name:
-                            tool_name = "unknown_tool"
-                            logger.warning(
-                                "Using default name for missing tool_use name"
-                            )
-
-                        tool_input = block.get("input")
-                        if isinstance(tool_input, str):
-                            # Parse JSON string input
-                            try:
-                                tool_input = json.loads(tool_input)
-                                logger.debug(f"Parsed JSON input: {tool_input}")
-                            except json.JSONDecodeError as e:
-                                logger.warning(
-                                    f"Failed to parse JSON input '{tool_input}': {e}, using empty dict"
-                                )
-                                tool_input = {}
-                        elif not isinstance(tool_input, dict):
-                            logger.warning(
-                                f"Invalid input type {type(tool_input)}: {tool_input}, using empty dict"
-                            )
-                            tool_input = {}
-
-                        logger.debug(
-                            f"Creating ToolCall from content with id={tool_id}, name={tool_name}, input={tool_input}"
-                        )
-                        tool_call = ToolCall(
-                            id=tool_id,
-                            name=tool_name,
-                            arguments=tool_input,
-                            result=None,  # Will be filled when tool result is available
-                        )
-                        self.add_tool_call(tool_call)
-                else:
-                    logger.warning(
-                        f"Expected dict but got {type(block)} for content block {i}: {block}"
-                    )
-
-        # Handle LangChain tool calls
-        if hasattr(ai_message, "tool_calls") and ai_message.tool_calls:
-            logger.info(f"Processing {len(ai_message.tool_calls)} tool calls")
-            for i, tool_call in enumerate(ai_message.tool_calls):
-                try:
-                    logger.debug(
-                        f"Tool call {i}: {tool_call} (type: {type(tool_call)})"
-                    )
-
-                    if isinstance(tool_call, dict):
-                        # Ensure we have valid values for required fields
-                        tool_id = tool_call.get("id")
-                        if not tool_id:
-                            tool_id = str(uuid.uuid4())
-                            logger.warning(
-                                f"Generated UUID for missing tool ID: {tool_id}"
-                            )
-
-                        tool_name = tool_call.get("name")
-                        if not tool_name:
-                            tool_name = "unknown_tool"
-                            logger.warning("Using default name for missing tool name")
-
-                        tool_args = tool_call.get("args")
-                        logger.debug(
-                            f"Extracted tool_args: {tool_args} (type: {type(tool_args)})"
-                        )
-                        if not isinstance(tool_args, dict):
-                            logger.warning(
-                                f"Invalid args type {type(tool_args)}: {tool_args}, using empty dict"
-                            )
-                            tool_args = {}
-
-                        logger.debug(
-                            f"Creating ToolCall with id={tool_id}, name={tool_name}, args={tool_args}"
-                        )
-                        logger.debug(
-                            f"ToolCall args type: {type(tool_args)}, value: {tool_args}"
-                        )
-                        tc = ToolCall(
-                            id=tool_id,
-                            name=tool_name,
-                            arguments=tool_args,
-                            result=None,
-                        )
-                        self.add_tool_call(tc)
-                    else:
-                        # Handle non-dict tool calls (e.g., LangChain ToolCall objects)
-                        tool_id = getattr(tool_call, "id", None) or str(uuid.uuid4())
-                        tool_name = getattr(tool_call, "name", "unknown_tool")
-                        tool_args = getattr(tool_call, "args", {})
-                        logger.debug(
-                            f"Extracted object tool_args: {tool_args} (type: {type(tool_args)})"
-                        )
-
-                        if not isinstance(tool_args, dict):
-                            logger.warning(
-                                f"Invalid args type {type(tool_args)}: {tool_args}, using empty dict"
-                            )
-                            tool_args = {}
-
-                        logger.debug(
-                            f"Creating ToolCall from object with id={tool_id}, name={tool_name}, args={tool_args}"
-                        )
-                        logger.debug(
-                            f"ToolCall object args type: {type(tool_args)}, value: {tool_args}"
-                        )
-                        tc = ToolCall(
-                            id=tool_id,
-                            name=tool_name,
-                            arguments=tool_args,
-                            result=None,
-                        )
-                        self.add_tool_call(tc)
-                except Exception as e:
-                    logger.error(f"Error processing tool call {i}: {e}")
-                    logger.error(f"Tool call data: {tool_call}")
-                    logger.error(f"Tool call type: {type(tool_call)}")
-                    if hasattr(tool_call, "__dict__"):
-                        logger.error(f"Tool call attributes: {tool_call.__dict__}")
-                    # Create a fallback tool call
-                    tc = ToolCall(
-                        id=str(uuid.uuid4()),
-                        name="error_tool",
-                        arguments={"error": str(e), "original_data": str(tool_call)},
-                        result=None,
-                    )
-                    self.add_tool_call(tc)
-
-        # Add message metadata
-        if hasattr(ai_message, "response_metadata") and ai_message.response_metadata:
-            self.add_metadata("response_metadata", ai_message.response_metadata)
-
-    def process_tool_message(self, tool_message: ToolMessage) -> None:
+    def process_tool_message(self, tool_message) -> None:
         """
         Process a tool result message and update the corresponding tool call.
 

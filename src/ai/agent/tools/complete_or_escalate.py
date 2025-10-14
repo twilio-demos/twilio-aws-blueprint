@@ -1,8 +1,12 @@
+from langchain_core.tools import tool
+
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 """
 CompleteOrEscalate tool for agent delegation and task completion.
 """
-
-from langchain_core.tools import tool
 
 
 @tool
@@ -27,10 +31,14 @@ def complete_or_escalate_tool(cancel: bool, reason: str) -> dict:
     """
     action = "escalated" if cancel else "completed"
 
-    return {
+    result = {
         "action": action,
         "cancel": cancel,
         "reason": reason,
         "message": f"Task {action}: {reason}",
         "return_to_supervisor": True,
     }
+
+    logger.info("CompleteOrEscalate tool invoked:", {"result": result})
+
+    return result
