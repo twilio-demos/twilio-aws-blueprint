@@ -31,7 +31,7 @@ FORCE_VALIDATION = os.getenv("FORCE_VALIDATION", "false").lower() == "true"
 # TTS Configuration
 TTS_PROVIDER = get_env_var("TTS_PROVIDER", "elevenlabs")
 TTS_VOICE = get_env_var("TTS_VOICE", "lxYfHSkYm1EzQzGhdbfc")
-TTS_LANGUAGE = get_env_var("TTS_LANGUAGE", "en-US")
+TTS_LANGUAGE = os.getenv("TTS_LANGUAGE", "en-US")
 
 # Additional configuration
 INITIAL_HINTS = os.getenv("INITIAL_HINTS", "")

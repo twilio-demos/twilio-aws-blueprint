@@ -1,8 +1,13 @@
-from typing import List, Optional
+from typing import Optional
 
 from twilio.twiml.voice_response import VoiceResponse
 
-from src.utils.env import TTS_PROVIDER, TTS_VOICE
+from src.utils.env import (
+    INITIAL_HINTS,
+    TTS_LANGUAGE,
+    TTS_PROVIDER,
+    TTS_VOICE,
+)
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -11,9 +16,10 @@ logger = get_logger(__name__)
 def create_initial_twiml(
     action_url: Optional[str],
     host: Optional[str],
-    welcome_greeting: str,
-    hints: List[str],
-    params: dict,
+    language: Optional[str],
+    welcome_greeting: Optional[str],
+    hints: Optional[str],
+    params: Optional[dict],
 ):
     # Create TwiML response using Twilio SDK
     response = VoiceResponse()
@@ -29,14 +35,21 @@ def create_initial_twiml(
         url=websocket_url,
         dtmf_detection=True,
         interruptible="any",
-        welcome_greeting=welcome_greeting,
+        welcome_greeting=welcome_greeting or "",
+        language=language or TTS_LANGUAGE,
         tts_provider=TTS_PROVIDER,
         voice=TTS_VOICE,
-        hints=",".join(hints) if len(hints) > 0 else "",
+        hints=hints or INITIAL_HINTS,
     )
 
-    for param, value in params.items():
-        conversation_relay.parameter(name=param, value=value)
+    # Store initial settings as parameters so that we can receive them in the setup message
+    conversation_relay.parameter(name="initial_hints", value=hints)
+    conversation_relay.parameter(name="initial_language", value=language)
+    conversation_relay.parameter(name="initial_greeting", value=welcome_greeting)
+
+    if params is not None:
+        for param, value in params.items():
+            conversation_relay.parameter(name=param, value=value)
 
     return str(response)
 

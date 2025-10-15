@@ -3,7 +3,14 @@ from typing import Literal, TypedDict
 
 from pydantic import BaseModel, field_validator
 
-from src.utils.env import DTMF_MAX_DIGITS, DTMF_TIMEOUT, IDLE_MAX_ATTEMPTS, IDLE_TIMEOUT
+from src.utils.env import (
+    DTMF_MAX_DIGITS,
+    DTMF_TIMEOUT,
+    IDLE_MAX_ATTEMPTS,
+    IDLE_TIMEOUT,
+    INITIAL_HINTS,
+    TTS_LANGUAGE,
+)
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -33,6 +40,8 @@ class SessionIdleConfig(BaseModel):
 class SessionConfig(BaseModel):
     DTMF: SessionDTMFConfig = SessionDTMFConfig()
     Idle: SessionIdleConfig = SessionIdleConfig()
+    Hints: str = INITIAL_HINTS
+    Lang: str = TTS_LANGUAGE
 
 
 class Session(BaseModel):

@@ -3,7 +3,7 @@ import json
 from fastapi import APIRouter, HTTPException, Request, Response
 
 from src.services.sessionservice import instance as session_service
-from src.utils.env import INITIAL_HINTS, WELCOME_GREETING
+from src.utils.env import WELCOME_GREETING
 from src.utils.handoff import handle_handoff
 from src.utils.logger import get_logger
 from src.utils.twiml import create_fallback_twiml, create_initial_twiml
@@ -38,9 +38,9 @@ async def call_twiml(request: Request):
         from_number = params.get("From")
         to_number = params.get("To")
         direction = params.get("Direction")
-        language = params.get("language", "en-US")
+        language = params.get("language")
         welcome_greeting = params.get("welcomeGreeting", WELCOME_GREETING)
-        initial_hints = params.get("initialHints", INITIAL_HINTS)
+        initial_hints = params.get("initialHints")
         action_url = params.get("actionUrl")
         host = request.headers.get("host")
 
@@ -48,8 +48,9 @@ async def call_twiml(request: Request):
         twiml_response = create_initial_twiml(
             action_url,
             host,
+            language,
             welcome_greeting,
-            initial_hints.split(",") if len(initial_hints) > 0 else [],
+            initial_hints,
             {},
         )
 
@@ -97,6 +98,7 @@ async def call_action(request: Request):
             session_status = params.get("SessionStatus")
 
             session_service.update_status(call_sid, session_id, session_status)
+            session = session_service.get(call_sid, session_id)
 
             if "HandoffData" in params:
                 handoff_data = json.loads(params.get("HandoffData"))
@@ -108,7 +110,7 @@ async def call_action(request: Request):
                         "data": handoff_data,
                     },
                 )
-                return handle_handoff(request)
+                return handle_handoff(request, session)
 
             if "ErrorCode" in params:
                 host = request.headers.get("host")
@@ -132,13 +134,19 @@ async def call_action(request: Request):
                 )
 
                 # Create ConversationRelay twiml again to resume the session
-                # Leave out the welcome message for a seamless experience
-                # TODO: Restore hints (keep them in state?)
+                # Initialize new session with current configuration
+                initial_hints = None
+                initial_language = None
+                if session is not None:
+                    initial_hints = session.Config.Hints
+                    initial_language = session.Config.Lang
+
                 twiml_response = create_initial_twiml(
                     action_url,
                     host,
-                    "",
-                    [],
+                    initial_language,
+                    "",  # Leave out the welcome message for a seamless experience
+                    initial_hints,
                     {"resume_session_id": session_id, "resume_call_sid": call_sid},
                 )
 
