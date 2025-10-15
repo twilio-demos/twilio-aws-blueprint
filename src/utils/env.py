@@ -15,6 +15,8 @@ def get_env_var(key: str, default=None, required=False):
     return value
 
 
+SPLIT_CHAR = "|"
+
 # Application settings
 ENVIRONMENT = get_env_var("ENVIRONMENT", "development")
 PORT = int(os.getenv("PORT", 8000))
@@ -29,11 +31,15 @@ TWILIO_AUTH_TOKEN = get_env_var("TWILIO_AUTH_TOKEN", required=True)
 FORCE_VALIDATION = os.getenv("FORCE_VALIDATION", "false").lower() == "true"
 
 # TTS Configuration
-TTS_PROVIDER = get_env_var("TTS_PROVIDER", "elevenlabs")
-TTS_VOICE = get_env_var("TTS_VOICE", "lxYfHSkYm1EzQzGhdbfc")
-TTS_LANGUAGE = os.getenv("TTS_LANGUAGE", "en-US")
+TTS_PROVIDER = os.getenv("TTS_PROVIDER", "ElevenLabs")
+TTS_VOICE = os.getenv("TTS_VOICE", "lxYfHSkYm1EzQzGhdbfc")
+
+# STT Configuration
+TRANSCRIPTION_PROVIDER = os.getenv("TRANSCRIPTION_PROVIDER", "Deepgram")
+SPEECH_MODEL = os.getenv("SPEECH_MODEL", "nova-3-general")
 
 # Additional configuration
+LANGUAGE = os.getenv("LANGUAGE", "en-US")
 INITIAL_HINTS = os.getenv("INITIAL_HINTS", "")
 WELCOME_GREETING = os.getenv(
     "WELCOME_GREETING", "Hello! I'm your AI assistant. How can I help you today?"
@@ -45,6 +51,7 @@ IDLE_REMINDER = os.getenv(
 )
 IDLE_MAX_ATTEMPTS = int(os.getenv("IDLE_MAX_ATTEMPTS", 3))
 IDLE_TIMEOUT = int(os.getenv("IDLE_TIMEOUT", 20))
+ERROR_MAX_ATTEMPTS = int(os.getenv("ERROR_MAX_ATTEMPTS", 5))
 
 # AWS Configuration
 AWS_REGION = get_env_var("AWS_REGION", "us-east-1")

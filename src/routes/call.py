@@ -3,10 +3,14 @@ import json
 from fastapi import APIRouter, HTTPException, Request, Response
 
 from src.services.sessionservice import instance as session_service
-from src.utils.env import WELCOME_GREETING
+from src.utils.env import ERROR_MAX_ATTEMPTS, WELCOME_GREETING
 from src.utils.handoff import handle_handoff
 from src.utils.logger import get_logger
-from src.utils.twiml import create_fallback_twiml, create_initial_twiml
+from src.utils.twiml import (
+    create_error_twiml,
+    create_fallback_twiml,
+    create_initial_twiml,
+)
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -137,28 +141,49 @@ async def call_action(request: Request):
                 # Initialize new session with current configuration
                 initial_hints = None
                 initial_language = None
+                hit_max_errors = False
                 if session is not None:
                     initial_hints = session.Config.Hints
                     initial_language = session.Config.Lang
+                    if (
+                        int(session.SessionState.get("resume_error_attempts", 0))
+                        >= ERROR_MAX_ATTEMPTS
+                    ):
+                        hit_max_errors = True
 
-                twiml_response = create_initial_twiml(
-                    action_url,
-                    host,
-                    initial_language,
-                    "",  # Leave out the welcome message for a seamless experience
-                    initial_hints,
-                    {"resume_session_id": session_id, "resume_call_sid": call_sid},
-                )
+                if hit_max_errors:
+                    twiml_response = create_error_twiml()
 
-                logger.info(
-                    "ConversationRelay reconnect TwiML response generated",
-                    {
-                        "CallSid": call_sid,
-                        "SessionId": session_id,
-                        "responseLength": len(twiml_response),
-                        "response": twiml_response,
-                    },
-                )
+                    logger.info(
+                        "ConversationRelay maximum errors limit reached",
+                        {
+                            "CallSid": call_sid,
+                            "SessionId": session_id,
+                        },
+                    )
+                else:
+                    twiml_response = create_initial_twiml(
+                        action_url,
+                        host,
+                        initial_language,
+                        "",  # Leave out the welcome message for a seamless experience
+                        initial_hints,
+                        {
+                            "resume_session_id": session_id,
+                            "resume_call_sid": call_sid,
+                            "resume_error": "true",
+                        },
+                    )
+
+                    logger.info(
+                        "ConversationRelay reconnect TwiML response generated",
+                        {
+                            "CallSid": call_sid,
+                            "SessionId": session_id,
+                            "responseLength": len(twiml_response),
+                            "response": twiml_response,
+                        },
+                    )
 
                 return Response(content=twiml_response, media_type="text/xml")
 
