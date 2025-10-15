@@ -43,8 +43,7 @@ class SessionService(DynamoDBService):
 
     def restore(
         self,
-        call_sid: str,
-        session_id: str,
+        new_session_id: str,
         hints: Optional[str],
         language: Optional[str],
         old_session: Session,
@@ -55,8 +54,7 @@ class SessionService(DynamoDBService):
         Creates a session object, caches it in memory, and persists it to DynamoDB.
         """
         session = copy.deepcopy(old_session)
-        session.CallSid = call_sid
-        session.SessionId = session_id
+        session.SessionId = new_session_id
         session.SessionStatus = "in-progress"
         session.Created = datetime.now(timezone.utc).isoformat()
 
@@ -71,7 +69,7 @@ class SessionService(DynamoDBService):
             errors = session.SessionState.get("resume_error_attempts", 0)
             session.SessionState["resume_error_attempts"] = int(errors) + 1
 
-        self.sessions[session_id] = session
+        self.sessions[new_session_id] = session
         super()._add_item(session)
         return session
 
@@ -90,139 +88,118 @@ class SessionService(DynamoDBService):
         self.sessions[session_id] = Session(**session)
         return self.sessions[session_id]
 
-    def update_language(
-        self, call_sid: str, session_id: str, language: str
-    ) -> Session | None:
+    def update_language(self, session: Session, language: str) -> Session | None:
         """Updates session language and returns the updated session object."""
 
         # Perform updates only if the value actually changed
-        if (
-            session_id in self.sessions
-            and self.sessions[session_id].Config.Lang == language
-        ):
-            return self.sessions[session_id]
+        if session.Config.Lang == language:
+            return session
 
+        # Update persisted storage
         super()._update_item(
-            {"CallSid": call_sid, "SessionId": session_id},
+            {"CallSid": session.CallSid, "SessionId": session.SessionId},
             "set Config.Lang=:s",
             {":s": language},
         )
 
-        # Get the updated object if not in memory yet, otherwise update the object in-memory and return it
-        if session_id not in self.sessions:
-            return self.get(call_sid, session_id)
-
         # Update object in memory
-        self.sessions[session_id].Config.Lang = language
-        return self.sessions[session_id]
+        session.Config.Lang = language
+        return session
 
-    def update_status(
+    def update_call_status(
         self, call_sid: str, session_id: str, status: str
     ) -> Session | None:
+        """Updates session status by ID and returns the updated session object."""
+        session = self.get(call_sid, session_id)
+        if session is not None:
+            return self.update_status(session, status)
+        return None
+
+    def update_status(self, session: Session, status: str) -> Session | None:
         """Updates session status and returns the updated session object."""
 
         # Perform updates only if the value actually changed
-        if (
-            session_id in self.sessions
-            and self.sessions[session_id].SessionStatus == status
-        ):
-            return self.sessions[session_id]
+        if session.SessionStatus == status:
+            return session
 
+        # Update persisted storage
         super()._update_item(
-            {"CallSid": call_sid, "SessionId": session_id},
+            {"CallSid": session.CallSid, "SessionId": session.SessionId},
             "set SessionStatus=:s",
             {":s": status},
         )
 
-        # Get the updated object if not in memory yet, otherwise update the object in-memory and return it
-        if session_id not in self.sessions:
-            return self.get(call_sid, session_id)
-
         # Update object in memory
-        self.sessions[session_id].SessionStatus = status
-        return self.sessions[session_id]
+        session.SessionStatus = status
+        return session
 
     def update_state(
-        self, call_sid: str, session_id: str, state: dict[str, str | int | bool]
+        self, session: Session, state: dict[str, str | int | bool]
     ) -> Session | None:
         """Updates session state and returns the updated session object."""
 
         # Perform updates only if the value actually changed
-        if (
-            session_id in self.sessions
-            and self.sessions[session_id].SessionState == state
-        ):
-            return self.sessions[session_id]
+        if session.SessionState == state:
+            return session
 
+        # Update persisted storage
         super()._update_item(
-            {"CallSid": call_sid, "SessionId": session_id},
+            {"CallSid": session.CallSid, "SessionId": session.SessionId},
             "set SessionState=:s",
             {":s": state},
         )
 
-        # Get the updated object if not in memory yet, otherwise update the object in-memory and return it
-        if session_id not in self.sessions:
-            return self.get(call_sid, session_id)
-
         # Update object in memory
-        self.sessions[session_id].SessionState = state
-        return self.sessions[session_id]
+        session.SessionState = state
+        return session
 
     def update_dtmf_config(
-        self, call_sid: str, session_id: str, max_digits: int, timeout: int
+        self, session: Session, max_digits: int, timeout: int
     ) -> Session | None:
         """Updates session DTMF config and returns the updated session object."""
 
         # Perform updates only if the values actually changed
         if (
-            session_id in self.sessions
-            and self.sessions[session_id].Config.DTMF.MaxDigits == max_digits
-            and self.sessions[session_id].Config.DTMF.Timeout == timeout
+            session.Config.DTMF.MaxDigits == max_digits
+            and session.Config.DTMF.Timeout == timeout
         ):
-            return self.sessions[session_id]
+            return session
 
+        # Update persisted storage
         super()._update_item(
-            {"CallSid": call_sid, "SessionId": session_id},
+            {"CallSid": session.CallSid, "SessionId": session.SessionId},
             "set Config.DTMF.MaxDigits=:m, Config.DTMF.Timeout=:t",
             {":m": max_digits, ":t": timeout},
         )
 
-        # Get the updated object if not in memory yet, otherwise update the object in-memory and return it
-        if session_id not in self.sessions:
-            return self.get(call_sid, session_id)
-
         # Update object in memory
-        self.sessions[session_id].Config.DTMF.MaxDigits = max_digits
-        self.sessions[session_id].Config.DTMF.Timeout = timeout
-        return self.sessions[session_id]
+        session.Config.DTMF.MaxDigits = max_digits
+        session.Config.DTMF.Timeout = timeout
+        return session
 
     def update_idle_config(
-        self, call_sid: str, session_id: str, max_attempts: int, timeout: int
+        self, session: Session, max_attempts: int, timeout: int
     ) -> Session | None:
         """Updates session idle config and returns the updated session object."""
 
         # Perform updates only if the values actually changed
         if (
-            session_id in self.sessions
-            and self.sessions[session_id].Config.Idle.MaxAttempts == max_attempts
-            and self.sessions[session_id].Config.Idle.Timeout == timeout
+            session.Config.Idle.MaxAttempts == max_attempts
+            and session.Config.Idle.Timeout == timeout
         ):
-            return self.sessions[session_id]
+            return session
 
+        # Update persisted storage
         super()._update_item(
-            {"CallSid": call_sid, "SessionId": session_id},
+            {"CallSid": session.CallSid, "SessionId": session.SessionId},
             "set Config.Idle.MaxAttempts=:m, Config.Idle.Timeout=:t",
             {":m": max_attempts, ":t": timeout},
         )
 
-        # Get the updated object if not in memory yet, otherwise update the object in-memory and return it
-        if session_id not in self.sessions:
-            return self.get(call_sid, session_id)
-
         # Update object in memory
-        self.sessions[session_id].Config.Idle.MaxAttempts = max_attempts
-        self.sessions[session_id].Config.Idle.Timeout = timeout
-        return self.sessions[session_id]
+        session.Config.Idle.MaxAttempts = max_attempts
+        session.Config.Idle.Timeout = timeout
+        return session
 
 
 instance = SessionService()

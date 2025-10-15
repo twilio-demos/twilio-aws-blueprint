@@ -2,7 +2,7 @@ import asyncio
 import math
 from typing import Awaitable, Callable
 
-from src.services.sessionservice import instance as session_service
+from src.types.models import Session
 from src.utils.env import IDLE_MAX_ATTEMPTS, IDLE_TIMEOUT
 from src.utils.logger import get_logger
 
@@ -13,9 +13,7 @@ class IdleMinder:
     """Waits for the session to become idle and invokes an action to remind the user."""
 
     def __init__(self, idle_callback: Callable[[bool], Awaitable[None]]):
-        self.call_sid: str | None = None
-        self.session_id: str | None = None
-        self.session_service = session_service
+        self.session: Session | None = None
         self.attempts = 0
         self.timer_handle: asyncio.TimerHandle | None = None
         self.idle_callback: Callable = idle_callback
@@ -29,10 +27,8 @@ class IdleMinder:
         self.clear()
 
         timeout = IDLE_TIMEOUT
-        if self.call_sid is not None and self.session_id is not None:
-            session = self.session_service.get(self.call_sid, self.session_id)
-            if session is not None:
-                timeout = session.Config.Idle.Timeout
+        if self.session is not None:
+            timeout = self.session.Config.Idle.Timeout
 
         loop = asyncio.get_running_loop()
         self.timer_handle = loop.call_later(
@@ -43,14 +39,17 @@ class IdleMinder:
     async def trigger(self):
         logger.info(
             "Triggering idle minder",
-            {"sessionId": self.session_id, "attempts": self.attempts},
+            {
+                "sessionId": self.session.SessionId
+                if self.session is not None
+                else "unknown",
+                "attempts": self.attempts,
+            },
         )
         try:
             max_attempts = IDLE_MAX_ATTEMPTS
-            if self.call_sid is not None and self.session_id is not None:
-                session = self.session_service.get(self.call_sid, self.session_id)
-                if session is not None:
-                    max_attempts = session.Config.Idle.MaxAttempts
+            if self.session is not None:
+                max_attempts = self.session.Config.Idle.MaxAttempts
 
             await self.idle_callback(self.attempts >= max_attempts)
         except Exception as error:
