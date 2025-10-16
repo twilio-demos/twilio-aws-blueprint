@@ -1,6 +1,7 @@
 """Base agent class for common functionality."""
 
 from abc import ABC, abstractmethod
+from typing import Optional
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
@@ -13,12 +14,25 @@ logger = get_logger(__name__)
 
 
 class BaseAgent(ABC):
-    def __init__(self, runnable, tools=None):
+    def __init__(self, runnable, tools=None, agent_name=None):
         self.runnable = runnable
         self.tools = tools or []
+        self.agent_name = agent_name
 
-    def _save_agent_message(self, result, agent_name: str, config: RunnableConfig):
+    @property
+    def name(self) -> str:
+        """Get the agent name, defaulting to class name if not set."""
+        return self.agent_name or self.__class__.__name__
+
+    def _save_agent_message(
+        self,
+        result,
+        config: Optional[RunnableConfig] = None,
+    ):
         """Save agent message to DynamoDB"""
+        # Use instance agent name if no agent_name parameter provided
+        agent_name = self.agent_name or "unknown_agent"
+
         thread_id = config.get("configurable", {}).get("thread_id") if config else None
 
         if thread_id:

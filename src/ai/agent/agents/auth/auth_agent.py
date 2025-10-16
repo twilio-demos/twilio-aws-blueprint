@@ -7,7 +7,7 @@ from langgraph.types import Command
 
 from src.ai.agent.agents.auth.auth_tools import authenticate_user
 from src.ai.agent.agents.base_agent import BaseAgent
-from src.ai.agent.core.bedrock import BedrockClientFactory
+from src.ai.agent.core.bedrock_client import BedrockClientFactory
 from src.ai.agent.tools.complete_or_escalate import complete_or_escalate_tool
 from src.utils.logger import get_logger
 
@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 
 
 class AuthAgent(BaseAgent):
-    def __init__(self):
+    def __init__(self, agent_name=None):
         auth_prompt = ChatPromptTemplate.from_messages(
             [
                 (
@@ -63,7 +63,7 @@ class AuthAgent(BaseAgent):
         tools = [authenticate_user, complete_or_escalate_tool]
 
         runnable = auth_prompt | llm.bind_tools(tools)
-        super().__init__(runnable, tools)
+        super().__init__(runnable, tools, agent_name)
 
     def __call__(self, state, config: RunnableConfig):
         result = self.runnable.invoke(state, config)
@@ -71,7 +71,7 @@ class AuthAgent(BaseAgent):
         logger.info("Auth agent invoked:", {"result": result})
 
         # Save agent message to DynamoDB
-        self._save_agent_message(result, "auth_agent", config)
+        self._save_agent_message(result, config)
 
         return Command(update={"messages": [result]})
 

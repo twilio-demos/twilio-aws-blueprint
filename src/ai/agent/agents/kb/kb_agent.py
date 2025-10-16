@@ -5,7 +5,7 @@ from langgraph.types import Command
 
 from src.ai.agent.agents.base_agent import BaseAgent
 from src.ai.agent.agents.kb.kb_tools import knowledge_base_search
-from src.ai.agent.core.bedrock import BedrockClientFactory
+from src.ai.agent.core.bedrock_client import BedrockClientFactory
 from src.ai.agent.tools.complete_or_escalate import complete_or_escalate_tool
 from src.utils.logger import get_logger
 
@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 
 class KnowledgeBaseAgent(BaseAgent):
-    def __init__(self):
+    def __init__(self, agent_name=None):
         kb_prompt = ChatPromptTemplate.from_messages(
             [
                 (
@@ -65,14 +65,14 @@ class KnowledgeBaseAgent(BaseAgent):
         llm = BedrockClientFactory.get_latency_optimized_llm_with_guardrails()
         tools = [knowledge_base_search, complete_or_escalate_tool]
         runnable = kb_prompt | llm.bind_tools(tools)
-        super().__init__(runnable, tools)
+        super().__init__(runnable, tools, agent_name)
 
     def __call__(self, state, config: RunnableConfig):
         result = self.runnable.invoke(state, config)
         logger.info("KB agent invoked:", {"result": result})
 
         # Save agent message to DynamoDB
-        self._save_agent_message(result, "kb_agent", config)
+        self._save_agent_message(result, config)
 
         return Command(update={"messages": [result]})
 

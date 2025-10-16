@@ -3,7 +3,7 @@ from typing import List
 
 from fastapi import WebSocket
 
-from src.ai.agent.core.agent_runner import AIAgentRunner
+from src.ai.agent.core.agent_runner_factory import AgentRunnerFactory
 from src.services.sessionservice import instance as session_service
 from src.services.threadservice import instance as thread_service
 from src.types.conversationrelay import (
@@ -39,7 +39,7 @@ class ConversationRelayHandler:
         self.thread_service = thread_service
         self.dtmf_buffer = DtmfBuffer()
         self.idle_minder = IdleMinder(self.handle_idle)
-        self.agent_runner = AIAgentRunner()
+        self.agent_runner = AgentRunnerFactory.create_runner("langgraph")
 
     async def handle_idle(self, reached_max_attempts: bool):
         if reached_max_attempts:
@@ -154,14 +154,6 @@ class ConversationRelayHandler:
             self.thread_service.append(
                 self.thread_id, message.voicePrompt, MessageType.user
             )
-
-        # TODO: Process with AI agent
-        # TODO: Generate response
-
-        # Example response - replace with AI processing
-        # sampleResponse = "I heard you say: " + message.voicePrompt
-        # response = TextTokenMessage(type="text", token=sampleResponse, last=True)
-        # await self.send_message(response)
 
         async for chunk in self.agent_runner.stream_request(
             message.voicePrompt, self.thread_id

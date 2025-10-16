@@ -5,7 +5,8 @@ from langgraph.types import Command
 
 from src.ai.agent.agents.base_agent import BaseAgent
 from src.ai.agent.core.agent_config import agent_config
-from src.ai.agent.core.bedrock import BedrockClientFactory
+from src.ai.agent.core.agent_registry import AgentRegistry
+from src.ai.agent.core.bedrock_client import BedrockClientFactory
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -15,26 +16,30 @@ class SupervisorAgent(BaseAgent):
     MODEL_NAME = "us.anthropic.claude-3-5-haiku-20241022-v1:0"
     REGION_NAME = "us-east-1"
 
-    def __init__(self):
+    def __init__(self, agent_name=None):
         # Check if KB agent is available
         kb_enabled = bool(agent_config.knowledge_base_id)
 
         # Build routing instructions based on available agents
-        routing_instructions = """Route requests as follows:
-                    - 'auth_agent' for identity verification
-                    - 'account_agent' for account inquiries (balance, transactions, account details)"""
+        routing_instructions = f"""Route requests as follows:
+                    - '{AgentRegistry.AUTH_AGENT.value}' for identity verification
+                    - '{AgentRegistry.ACCOUNT_AGENT.value}' for account inquiries (balance, transactions, account details)"""
 
         if kb_enabled:
-            routing_instructions += """
-                    - 'kb_agent' ONLY for general banking information like FDIC coverage"""
+            routing_instructions += f"""
+                    - '{AgentRegistry.KB_AGENT.value}' ONLY for general banking information like FDIC coverage"""
 
         routing_instructions += """
                     - 'FINISH' when the customer's request is complete and conversation should end"""
 
-        # Build valid agent list for validation
-        valid_agents = ["auth_agent", "account_agent", "finish"]
+        # Build valid agent list for validation using enum
+        valid_agents = [
+            AgentRegistry.AUTH_AGENT.value,
+            AgentRegistry.ACCOUNT_AGENT.value,
+            "finish",
+        ]
         if kb_enabled:
-            valid_agents.append("kb_agent")
+            valid_agents.append(AgentRegistry.KB_AGENT.value)
 
         self.valid_agents = valid_agents
         self.kb_enabled = kb_enabled
@@ -66,7 +71,7 @@ class SupervisorAgent(BaseAgent):
 
         llm = BedrockClientFactory.get_latency_optimized_llm_with_guardrails()
 
-        super().__init__(supervisor_prompt | llm)
+        super().__init__(supervisor_prompt | llm, agent_name=agent_name)
 
     def __call__(self, state, config: RunnableConfig):
         dialog_state = None
@@ -102,16 +107,18 @@ class SupervisorAgent(BaseAgent):
 
         next_agent = content_text.strip().lower()
 
-        if next_agent == "account_agent" and not user_authenticated:
+        if next_agent == AgentRegistry.ACCOUNT_AGENT.value and not user_authenticated:
             print("User not authenticated, routing to auth_agent.")
             return Command(
-                goto="auth_agent",
-                update={"dialog_state": dialog_state + ["auth_agent"]},
+                goto=AgentRegistry.AUTH_AGENT.value,
+                update={
+                    "dialog_state": dialog_state + [AgentRegistry.AUTH_AGENT.value]
+                },
             )
 
-        # TODO: Add more robust validation, possibly using route to a general_agent
+        # Validate agent using enum
         if next_agent not in self.valid_agents:
-            next_agent = "auth_agent"
+            next_agent = AgentRegistry.AUTH_AGENT.value
 
         logger.info("SupervisorAgent decided next_agent:", {"next_agent": next_agent})
 

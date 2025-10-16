@@ -6,20 +6,8 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
 
-from src.ai.agent.agents.account_info.account_agent import (
-    AccountAgent,
-    account_agent_next_step,
-)
-from src.ai.agent.agents.account_info.account_tools import account_balance, account_info
-from src.ai.agent.agents.auth.auth_agent import AuthAgent, auth_agent_next_step
-from src.ai.agent.agents.auth.auth_tools import authenticate_user
-from src.ai.agent.agents.kb.kb_agent import (
-    KnowledgeBaseAgent,
-    kb_agent_next_step,
-    knowledge_base_search,
-)
-from src.ai.agent.agents.supervisor.supervisor_agent import SupervisorAgent
 from src.ai.agent.core.agent_config import agent_config
+from src.ai.agent.core.agent_registry import AgentRegistry
 from src.ai.agent.models.state import AgentState
 from src.ai.agent.tools.complete_or_escalate import complete_or_escalate_tool
 from src.utils.logger import get_logger
@@ -54,98 +42,105 @@ def pop_dialog_state(state: AgentState) -> dict:
 class AgentGraph:
     """Main hierarchical workflow orchestrating specialized agents"""
 
+    LEAVE_SKILL_NODE = "leave_skill"
+
     def __init__(self):
-        # Initialize supervisor
-        self.supervisor = SupervisorAgent()
-
-        # Initialize specialists
-        self.auth_agent = AuthAgent()
-        self.auth_tool_node = ToolNode([authenticate_user, complete_or_escalate_tool])
-        self.account_agent = AccountAgent()
-        self.account_tool_node = ToolNode(
-            [account_info, account_balance, complete_or_escalate_tool]
-        )
-
-        # Initialize KB agent and tool node only if knowledge base is configured
+        # Check if KB is enabled
         self.kb_enabled = bool(agent_config.knowledge_base_id)
-        if self.kb_enabled:
-            self.kb_agent = KnowledgeBaseAgent()
-            self.kb_tool_node = ToolNode(
-                [knowledge_base_search, complete_or_escalate_tool]
-            )
-        else:
-            logger.warning(
-                "Knowledge Base agent disabled: BEDROCK_KB_ID not configured"
-            )
-            self.kb_agent = None
-            self.kb_tool_node = None
+
+        # Initialize agents dynamically using enum
+        self.agents = {}
+        self.tool_nodes = {}
+
+        self._initialize_agents()
 
         # Create the graph
         self.graph = self._build_graph()
 
+    def _initialize_agents(self):
+        """Initialize all agents and tool nodes based on agent registry."""
+        for agent_registry in AgentRegistry:
+            # Skip KB agent if not enabled
+            if agent_registry == AgentRegistry.KB_AGENT and not self.kb_enabled:
+                logger.warning(
+                    "Knowledge Base agent disabled: BEDROCK_KB_ID not configured"
+                )
+                continue
+
+            # Create agent instance
+            agent_instance = agent_registry.create_agent_instance()
+            if agent_instance:
+                self.agents[agent_registry.value] = agent_instance
+
+                # Create tool node if agent has tools
+                tools = agent_registry.tools
+                if tools:
+                    # Add complete_or_escalate_tool to all agent tool nodes
+                    all_tools = tools + [complete_or_escalate_tool]
+                    tool_node_name = agent_registry.tool_node_name
+                    if tool_node_name:
+                        self.tool_nodes[tool_node_name] = ToolNode(all_tools)
+
     def _build_graph(self) -> CompiledStateGraph:
         graph = StateGraph(AgentState)  # type: ignore
-        # Add all agent nodes
-        graph.add_node("supervisor", self.supervisor)
-        graph.add_node("auth_agent", self.auth_agent)
-        graph.add_node("account_agent", self.account_agent)
 
-        # Only add KB agent if knowledge base is configured
-        if self.kb_enabled and self.kb_agent is not None:
-            graph.add_node("kb_agent", self.kb_agent)
+        # Add all agent nodes dynamically
+        for agent_name, agent_instance in self.agents.items():
+            graph.add_node(agent_name, agent_instance)
 
-        graph.add_node("auth_tool_node", self.auth_tool_node)
-        graph.add_node("account_tool_node", self.account_tool_node)
+        # Add all tool nodes dynamically
+        for tool_name, tool_node in self.tool_nodes.items():
+            graph.add_node(tool_name, tool_node)
 
-        # Only add KB tool node if knowledge base is configured
-        if self.kb_enabled and self.kb_tool_node is not None:
-            graph.add_node("kb_tool_node", self.kb_tool_node)
+        # Add special nodes
+        graph.add_node(self.LEAVE_SKILL_NODE, pop_dialog_state)
 
-        # Add coordination edges
-        graph.add_edge(START, "supervisor")
+        # Set entry point
+        graph.add_edge(START, AgentRegistry.SUPERVISOR.value)
 
-        graph.add_conditional_edges(
-            "auth_agent",
-            auth_agent_next_step,
-            {
-                "auth_tool_node": "auth_tool_node",
-                "leave_skill": "leave_skill",
-                END: END,
-            },
-        )
+        # Add conditional edges dynamically based on agent registry configuration
+        self._add_conditional_edges(graph)
 
-        graph.add_conditional_edges(
-            "account_agent",
-            account_agent_next_step,
-            {
-                "account_tool_node": "account_tool_node",
-                "leave_skill": "leave_skill",
-                END: END,
-            },
-        )
+        # Add tool edges
+        self._add_tool_edges(graph)
 
-        # Only add KB agent conditional edges if knowledge base is configured
-        if self.kb_enabled and self.kb_agent is not None:
-            graph.add_conditional_edges(
-                "kb_agent",
-                kb_agent_next_step,
-                {
-                    "kb_tool_node": "kb_tool_node",
-                    "leave_skill": "leave_skill",
-                    END: END,
-                },
-            )
-
-        graph.add_edge("auth_tool_node", "auth_agent")
-        graph.add_edge("account_tool_node", "account_agent")
-
-        # Only add KB tool edge if knowledge base is configured
-        if self.kb_enabled and self.kb_tool_node is not None:
-            graph.add_edge("kb_tool_node", "kb_agent")
-
-        graph.add_node("leave_skill", pop_dialog_state)
-        graph.add_edge("leave_skill", "supervisor")
+        # Add leave_skill edge
+        graph.add_edge(self.LEAVE_SKILL_NODE, AgentRegistry.SUPERVISOR.value)
 
         memory = MemorySaver()
-
         return graph.compile(checkpointer=memory)
+
+    def _add_conditional_edges(self, graph):
+        """Add conditional edges based on agent configuration."""
+        for agent_registry in AgentRegistry:
+            if agent_registry.value not in self.agents:
+                continue  # Skip disabled agents
+
+            next_step_func = agent_registry.next_step_function
+            if next_step_func:
+                # Build routing map
+                routing_map = {}
+
+                # Add tool node routing if exists
+                tool_node_name = agent_registry.tool_node_name
+                if tool_node_name and tool_node_name in self.tool_nodes:
+                    routing_map[tool_node_name] = tool_node_name
+
+                # Add leave_skill routing
+                routing_map[self.LEAVE_SKILL_NODE] = self.LEAVE_SKILL_NODE
+                routing_map[END] = END
+
+                graph.add_conditional_edges(
+                    agent_registry.value, next_step_func, routing_map
+                )
+
+    def _add_tool_edges(self, graph):
+        """Add edges from tool nodes back to their corresponding agents."""
+        for agent_registry in AgentRegistry:
+            tool_node_name = agent_registry.tool_node_name
+            if (
+                tool_node_name
+                and tool_node_name in self.tool_nodes
+                and agent_registry.value in self.agents
+            ):
+                graph.add_edge(tool_node_name, agent_registry.value)

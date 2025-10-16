@@ -8,6 +8,11 @@ from typing import Annotated, Optional, Sequence, TypedDict
 
 from langchain_core.messages import BaseMessage
 
+from src.ai.agent.core.agent_registry import AgentRegistry
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 def update_dialog_stack(
     current_stack: list[str], push: Optional[str] = None, pop: bool = False
@@ -32,34 +37,48 @@ def update_dialog_stack(
     return current_stack
 
 
-def dialog_stack_reducer(
-    current_stack: list[str], operation: Optional[dict]
-) -> list[str]:
+def dialog_stack_reducer(current_stack: list[str], operation) -> list[str]:
     """
     Reducer that wraps update_dialog_stack for LangGraph.
 
     Args:
-        current_stack: Current stack state
-        operation: Dict with 'push' and/or 'pop' keys
+        current_stack: Current dialog stack
+        operation: Either a dict with 'push'/'pop' keys, a list (direct assignment),
+                   or string "pop" for popping
             Examples:
                 {'push': 'auth_agent'}
                 {'pop': True}
+                ['supervisor', 'auth_agent']  # Direct assignment
+                "pop"  # Pop operation
     """
     if not operation:
         return current_stack
 
-    # Handle case where operation is not a dictionary
-    if not isinstance(operation, dict):
-        print(
-            f"Warning: Expected dict for operation, got {type(operation)}: {operation}"
-        )
-        return current_stack
+    # Handle direct list assignment (backward compatibility)
+    if isinstance(operation, list):
+        return operation
 
-    return update_dialog_stack(
-        current_stack=current_stack,
-        push=operation.get("push"),
-        pop=operation.get("pop", False),
+    # Handle string "pop" operation
+    if operation == "pop":
+        return update_dialog_stack(
+            current_stack=current_stack,
+            push=None,
+            pop=True,
+        )
+
+    # Handle dictionary operations
+    if isinstance(operation, dict):
+        return update_dialog_stack(
+            current_stack=current_stack,
+            push=operation.get("push"),
+            pop=operation.get("pop", False),
+        )
+
+    # Fallback: return current stack unchanged
+    logger.warning(
+        f"Unknown dialog_stack operation type: {type(operation)}, value: {operation}"
     )
+    return current_stack
 
 
 class AgentState(TypedDict):
@@ -77,5 +96,5 @@ def default_agent_state() -> AgentState:
         "messages": [],
         "user_authenticated": False,
         "username": None,
-        "dialog_state": ["supervisor"],
+        "dialog_state": [AgentRegistry.SUPERVISOR.value],
     }
