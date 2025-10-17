@@ -1,5 +1,6 @@
 """Main AI Agent Runner implementation."""
 
+import uuid
 from decimal import Decimal
 from typing import AsyncGenerator
 
@@ -10,11 +11,13 @@ from src.ai.agent.core.agent_graph import AgentGraph
 from src.ai.agent.core.agent_registry import AgentRegistry
 from src.ai.agent.core.base_agent_runner import BaseAgentRunner
 from src.services.threadservice import instance as thread_service
-from src.types.models import MessageType, StreamChunk
+from src.types.models import StreamChunk
 from src.utils.logger import get_logger
-from src.utils.message_builder import create_user_message
 
 logger = get_logger(__name__)
+
+# Constants
+CONTENT_PREVIEW_LENGTH = 200
 
 
 class AIAgentRunner(BaseAgentRunner):
@@ -28,6 +31,9 @@ class AIAgentRunner(BaseAgentRunner):
         self.agent_graph: AgentGraph = AgentGraph()
         self._session_data = {}
         self.thread_service = thread_service
+        # Ensure config is initialized from parent class
+        if not hasattr(self, "config") or self.config is None:
+            self.config = RunnableConfig(configurable={"thread_id": str(uuid.uuid4())})
         self.initialize_agent_system()
 
     def initialize_agent_system(self) -> None:
@@ -91,7 +97,7 @@ class AIAgentRunner(BaseAgentRunner):
                     )
                     logger.info(f"Processing AIMessage from {sender}")
                     logger.debug(
-                        f"AIMessage content preview: {str(msg.content)[:200]}..."
+                        f"AIMessage content preview: {str(msg.content)[:CONTENT_PREVIEW_LENGTH]}..."
                     )
                 elif isinstance(msg, ToolMessage):
                     logger.info(f"Processing ToolMessage: {msg.name}")
@@ -100,20 +106,18 @@ class AIAgentRunner(BaseAgentRunner):
 
                 # Handle different message types
                 if isinstance(msg, HumanMessage):
-                    logger.info(f"[User] {msg.content}")
-                    logger.info(
+                    logger.debug(f"[User] {msg.content}")
+                    logger.debug(
                         f"HumanMessage detected - Content: '{msg.content}', NOT saving (already saved)"
                     )
 
                 elif isinstance(msg, AIMessage):
-                    sender = None
-                    if metadata:
-                        if isinstance(metadata, dict):
-                            sender = metadata.get("langgraph_node")
-                        else:
-                            logger.warning(
-                                f"Expected metadata to be dict, got {type(metadata)}: {metadata}"
-                            )
+                    # Extract sender (reuse logic from above)
+                    sender = (
+                        metadata.get("langgraph_node")
+                        if isinstance(metadata, dict)
+                        else "unknown"
+                    )
 
                     # Skip supervisor messages entirely - they are internal routing decisions
                     if sender == AgentRegistry.SUPERVISOR.value:
@@ -162,12 +166,19 @@ class AIAgentRunner(BaseAgentRunner):
             logger.error(f"{error_msg}")
             logger.error(f"Full traceback: {traceback.format_exc()}")
 
-            if thread_id is not None:
-                error_message = create_user_message(thread_id, f"Error: {error_msg}")
-                error_message.Type = MessageType.system
-
     def convert_decimals(self, obj):
-        """Convert metadata to DynamoDB-safe types."""
+        """
+        Convert metadata to DynamoDB-safe types.
+
+        DynamoDB requires specific data types. This method recursively converts
+        numbers to Decimal objects and handles nested structures.
+
+        Args:
+            obj: The object to convert (can be dict, list, tuple, or primitive)
+
+        Returns:
+            The converted object with DynamoDB-safe types
+        """
         if isinstance(obj, (int, float)):
             # Convert numbers to Decimal for DynamoDB
             return Decimal(str(obj))
