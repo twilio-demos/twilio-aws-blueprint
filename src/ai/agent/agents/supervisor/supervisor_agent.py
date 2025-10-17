@@ -13,9 +13,6 @@ logger = get_logger(__name__)
 
 
 class SupervisorAgent(BaseAgent):
-    MODEL_NAME = "us.anthropic.claude-3-5-haiku-20241022-v1:0"
-    REGION_NAME = "us-east-1"
-
     def __init__(self, agent_name=None):
         # Check if KB agent is available
         kb_enabled = bool(agent_config.knowledge_base_id)
