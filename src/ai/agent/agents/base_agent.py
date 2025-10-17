@@ -6,7 +6,7 @@ from typing import Optional
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
-from ai.agent.agents.message_builder import AgentMessageBuilder
+from src.ai.agent.agents.message_builder import AgentMessageBuilder
 from src.services.threadservice import instance as thread_service
 from src.utils.logger import get_logger
 
