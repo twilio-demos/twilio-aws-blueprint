@@ -6,4 +6,5 @@ websockets
 twilio
 python-dotenv
 python-multipart
+pyright
 ruff

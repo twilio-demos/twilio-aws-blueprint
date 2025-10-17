@@ -61,20 +61,18 @@ requirements.txt                 # Python dependencies
 ### Prerequisites
 
 - Python 3.13+
-- Docker
 - AWS CLI configured with appropriate permissions
 - Twilio account
+- For Windows users: Bash shell
 
 ### Local Development
 
 1. **Clone and setup**:
 
    ```bash
-   git clone <your-repo>
+   git clone https://github.com/twilio-professional-services/twilio-conversation-relay-aws.git
    cd twilio-conversation-relay-aws
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   pip install -r requirements.txt
+   ./setup.sh
    ```
 
 2. **Environment configuration**:
@@ -83,13 +81,18 @@ requirements.txt                 # Python dependencies
    cp .env.example .env
    # Edit .env with your Twilio credentials
    ```
+   
+   | Variable             | Description        | Example           |
+   | -------------------- | ------------------ | ----------------- |
+   | `TWILIO_ACCOUNT_SID` | Twilio Account SID | `ACxxxxxxxxx`     |
+   | `TWILIO_AUTH_TOKEN`  | Twilio Auth Token  | `your-auth-token` |
+   | `AWS_PROFILE`        | AWS CLI Profile    | `profile-name`    |
 
 3. **Run locally**:
 
    ```bash
-   # Direct FastAPI
-   source venv/bin/activate
-   python -m uvicorn src.main:app --reload --port 8000
+   # Run directly
+   ./dev.sh
 
    # Or with Docker
    docker-compose up --build
@@ -98,8 +101,38 @@ requirements.txt                 # Python dependencies
 4. **Test endpoints**:
    ```bash
    curl http://localhost:8000/
-   curl http://localhost:8000/call/twiml
    ```
+
+### Local Testing with Twilio
+
+1. Expose the app endpoints with **ngrok**:
+
+```bash
+ngrok http 8000
+```
+
+2. Update **.env** with the **ngrok Forwarding URL** emitted by the previous step:
+
+```
+EXTERNAL_URL=https://abc123.ngrok.app
+```
+
+3. Run the app:
+
+```bash
+./dev.sh
+```
+
+(note: if you already had the app running, you'll need to restart it to pick up the updated values from **.env**!)
+
+4. [Create a new TwiML app](https://console.twilio.com/us1/develop/voice/manage/twiml-apps?frameUrl=%2Fconsole%2Fvoice%2Ftwiml%2Fapps%3Fx-target-region%3Dus1) in the Twilio Console with the following settings:
+
+    - **Friendly Name**: Enter a name of your choosing.
+    - **Voice Configuration Request URL**: `https://your-ngrok-url-here.ngrok.app/call/twiml`
+
+5. [Configure a phone number](https://console.twilio.com/us1/develop/phone-numbers/manage/incoming) to point to the TwiML app you just created.
+
+6. Dial the configured phone number and chat away.
 
 ## Production Deployment on AWS
 

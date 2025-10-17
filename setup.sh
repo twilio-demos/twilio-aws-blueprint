@@ -40,7 +40,7 @@ echo ""
 echo_info "Checking prerequisites..."
 
 if ! command_exists python3; then
-    echo_error "Python 3 is not installed. Please install Python 3.10+ first."
+    echo_error "Python 3 is not installed. Please install Python 3.13 first."
     exit 1
 fi
 
