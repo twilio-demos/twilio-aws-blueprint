@@ -170,6 +170,12 @@ class ConversationRelayHandler:
                     await self.send_message(response)
                     self.idle_minder.handle_activity(False, str(chunk["data"]))
 
+            # Send last message to indicate end of response
+            response = TextTokenMessage(type="text", token="", last=True)
+            logger.info("Sending text token to Twilio", {"text": response})
+            await self.send_message(response)
+            self.idle_minder.handle_activity(False, "")
+
     async def handle_dtmf_message(self, message: DTMFMessage):
         """Handle DTMF digit from caller"""
         logger.info(
