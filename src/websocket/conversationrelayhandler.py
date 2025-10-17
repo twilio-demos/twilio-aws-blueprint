@@ -17,7 +17,7 @@ from src.types.conversationrelay import (
     SwitchLanguageMessage,
     TextTokenMessage,
 )
-from src.types.models import MessageType
+from src.types.models import MessageType, Session
 from src.utils.env import IDLE_REMINDER, WELCOME_GREETING
 from src.utils.logger import get_logger
 
@@ -32,9 +32,7 @@ class ConversationRelayHandler:
 
     def __init__(self, websocket: WebSocket):
         self.websocket = websocket
-        self.call_sid: str | None = None
-        self.session_id: str | None = None
-        self.thread_id: str | None = None
+        self.session: Session | None = None
         self.session_service = session_service
         self.thread_service = thread_service
         self.dtmf_buffer = DtmfBuffer()
@@ -52,20 +50,11 @@ class ConversationRelayHandler:
         response = TextTokenMessage(type="text", token=IDLE_REMINDER, last=True)
         await self.send_message(response)
         self.idle_minder.handle_activity(True, IDLE_REMINDER)
-        if self.thread_id is not None:
-            self.thread_service.append(
-                self.thread_id, IDLE_REMINDER, MessageType.system
-            )
+        if self.session is not None:
+            self.thread_service.append(self.session, IDLE_REMINDER, MessageType.system)
 
     async def handle_setup_message(self, message: SetupMessage):
         """Handle setup message from Twilio"""
-        self.session_id = message.sessionId
-        self.call_sid = message.callSid
-        self.dtmf_buffer.session_id = self.session_id
-        self.dtmf_buffer.call_sid = self.call_sid
-        self.idle_minder.session_id = self.session_id
-        self.idle_minder.call_sid = self.call_sid
-
         logger.info(
             "ConversationRelay session setup",
             {
@@ -78,6 +67,8 @@ class ConversationRelayHandler:
             },
         )
 
+        session_id = message.sessionId
+        call_sid = message.callSid
         new_session = True
         hints = None
         language = None
@@ -108,31 +99,31 @@ class ConversationRelayHandler:
                 logger.info(
                     "Restoring previous session",
                     {
-                        "callSid": self.call_sid,
+                        "callSid": call_sid,
                         "oldSession": old_session.SessionId,
-                        "newSession": self.session_id,
+                        "newSession": session_id,
                         "hadError": resume_error,
                     },
                 )
-                self.session_service.restore(
-                    self.call_sid,
-                    self.session_id,
+                self.session = self.session_service.restore(
+                    session_id,
                     hints,
                     language,
                     old_session,
                     resume_error,
                 )
-                self.thread_service.get(old_session.ThreadId)
-                self.thread_id = old_session.ThreadId
 
         if new_session:
-            session = self.session_service.create(
-                self.call_sid, self.session_id, hints, language
+            self.session = self.session_service.create(
+                call_sid, session_id, hints, language
             )
-            self.thread_id = session.ThreadId
-            self.idle_minder.handle_activity(False, greeting)
-            if self.thread_id is not None:
-                self.thread_service.append(self.thread_id, greeting, MessageType.system)
+
+        if self.session is not None:
+            self.dtmf_buffer.session = self.session
+            self.idle_minder.session = self.session
+            if new_session:
+                self.idle_minder.handle_activity(False, greeting)
+                self.thread_service.append(self.session, greeting, MessageType.system)
 
         # TODO: Initialize AI agent session
         # TODO: Send welcome message if needed
@@ -142,7 +133,7 @@ class ConversationRelayHandler:
         logger.info(
             "Received voice prompt",
             {
-                "sessionId": self.session_id,
+                "sessionId": self.log_session_id(),
                 "voicePrompt": message.voicePrompt,
                 "lang": message.lang,
                 "last": message.last,
@@ -150,33 +141,48 @@ class ConversationRelayHandler:
         )
 
         self.idle_minder.handle_activity()
-        if self.thread_id is not None:
+        if self.session is not None:
             self.thread_service.append(
-                self.thread_id, message.voicePrompt, MessageType.user
+                self.session, message.voicePrompt, MessageType.user
             )
 
-        async for chunk in self.agent_runner.stream_request(
-            message.voicePrompt, self.thread_id
-        ):
-            logger.debug("Stream chunk:", {"chunk": chunk})
-            if chunk["type"] == "content":
-                response = TextTokenMessage(
-                    type="text", token=str(chunk["data"]), last=False
-                )
-                logger.info("Sending text token to Twilio", {"text": response})
-                await self.send_message(response)
-                self.idle_minder.handle_activity(False, str(chunk["data"]))
+            # if "spanish" in message.voicePrompt.lower():
+            #     await self.update_language("es-US")
+            #     return
+            # if "brazil" in message.voicePrompt.lower():
+            #     await self.update_language("pt-BR")
+            #     return
+            # # Hints testing
+            # if "need a doctor" in message.voicePrompt.lower():
+            #     await self.update_hints(
+            #         ["Wilkoff", "Bossong", "Rice", "Wigand"], "Which doctor?"
+            #     )
+
+            async for chunk in self.agent_runner.stream_request(
+                message.voicePrompt, self.session.ThreadId
+            ):
+                logger.debug("Stream chunk:", {"chunk": chunk})
+                if chunk["type"] == "content":
+                    response = TextTokenMessage(
+                        type="text", token=str(chunk["data"]), last=False
+                    )
+                    logger.info("Sending text token to Twilio", {"text": response})
+                    await self.send_message(response)
+                    self.idle_minder.handle_activity(False, str(chunk["data"]))
 
     async def handle_dtmf_message(self, message: DTMFMessage):
         """Handle DTMF digit from caller"""
         logger.info(
             "Received DTMF digit",
-            {"sessionId": self.session_id, "digit": message.digit},
+            {
+                "sessionId": self.log_session_id(),
+                "digit": message.digit,
+            },
         )
 
         async def handle_dtmf_flush(digits: str):
-            if self.thread_id is not None:
-                self.thread_service.append(self.thread_id, digits, MessageType.user)
+            if self.session is not None:
+                self.thread_service.append(self.session, digits, MessageType.user)
             # TODO: Process with AI agent
             # Example response - replace with AI processing
             response = TextTokenMessage(
@@ -185,9 +191,9 @@ class ConversationRelayHandler:
                 last=True,
             )
             await self.send_message(response)
-            if self.thread_id is not None:
+            if self.session is not None:
                 self.thread_service.append(
-                    self.thread_id, response.token, MessageType.agent
+                    self.session, response.token, MessageType.agent
                 )
 
         await self.dtmf_buffer.handle_input(message.digit, handle_dtmf_flush)
@@ -199,7 +205,7 @@ class ConversationRelayHandler:
         logger.info(
             "Caller interrupted",
             {
-                "sessionId": self.session_id,
+                "sessionId": self.log_session_id(),
                 "utteranceUntilInterrupt": message.utteranceUntilInterrupt,
                 "durationMs": message.durationUntilInterruptMs,
             },
@@ -214,7 +220,10 @@ class ConversationRelayHandler:
         """Handle error from Twilio"""
         logger.error(
             "Twilio ConversationRelay error",
-            {"sessionId": self.session_id, "description": message.description},
+            {
+                "sessionId": self.log_session_id(),
+                "description": message.description,
+            },
         )
 
         # TODO: Handle error appropriately
@@ -238,8 +247,8 @@ class ConversationRelayHandler:
             type="language", ttsLanguage=language, transcriptionLanguage=language
         )
         await self.send_message(newResponse)
-        if self.call_sid is not None and self.session_id is not None:
-            session_service.update_language(self.call_sid, self.session_id, language)
+        if self.session is not None:
+            session_service.update_language(self.session, language)
 
     async def send_message(self, message: OutgoingMessage):
         """Send message to Twilio"""
@@ -249,7 +258,7 @@ class ConversationRelayHandler:
         logger.debug(
             "Sent message to Twilio",
             {
-                "sessionId": self.session_id,
+                "sessionId": self.log_session_id(),
                 "messageType": message.type,
                 "message": message_json,
             },
@@ -284,7 +293,7 @@ class ConversationRelayHandler:
                 logger.warning(
                     "Unknown message type received",
                     {
-                        "sessionId": self.session_id,
+                        "sessionId": self.log_session_id(),
                         "messageType": message_type,
                         "rawMessage": raw_message,
                     },
@@ -294,8 +303,11 @@ class ConversationRelayHandler:
             logger.error(
                 "Error processing message",
                 {
-                    "sessionId": self.session_id,
+                    "sessionId": self.log_session_id(),
                     "error": str(e),
                     "rawMessage": raw_message,
                 },
             )
+
+    def log_session_id(self) -> str:
+        return self.session.SessionId if self.session is not None else "unknown"

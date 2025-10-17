@@ -101,8 +101,9 @@ async def call_action(request: Request):
             session_id = params.get("SessionId")
             session_status = params.get("SessionStatus")
 
-            session_service.update_status(call_sid, session_id, session_status)
-            session = session_service.get(call_sid, session_id)
+            session = session_service.update_call_status(
+                call_sid, session_id, session_status
+            )
 
             if "HandoffData" in params:
                 handoff_data = json.loads(params.get("HandoffData"))

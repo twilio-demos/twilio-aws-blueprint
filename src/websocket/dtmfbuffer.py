@@ -1,7 +1,7 @@
 import asyncio
 from typing import Awaitable, Callable
 
-from src.services.sessionservice import instance as session_service
+from src.types.models import Session
 from src.utils.env import DTMF_MAX_DIGITS, DTMF_TIMEOUT
 from src.utils.logger import get_logger
 
@@ -12,9 +12,7 @@ class DtmfBuffer:
     """Buffers DTMF digits received and flushes them per session configuration"""
 
     def __init__(self):
-        self.call_sid: str | None = None
-        self.session_id: str | None = None
-        self.session_service = session_service
+        self.session: Session | None = None
         self.buffer: str = ""
         self.timer_handle: asyncio.TimerHandle | None = None
 
@@ -26,7 +24,12 @@ class DtmfBuffer:
     async def flush(self, callback: Callable[[str], Awaitable[None]]):
         logger.info(
             "Returning buffered DTMF",
-            {"sessionId": self.session_id, "digits": self.buffer},
+            {
+                "sessionId": self.session.SessionId
+                if self.session is not None
+                else "unknown",
+                "digits": self.buffer,
+            },
         )
         try:
             await callback(self.buffer)
@@ -45,11 +48,9 @@ class DtmfBuffer:
 
         max_digits = DTMF_MAX_DIGITS
         timeout = DTMF_TIMEOUT
-        if self.call_sid is not None and self.session_id is not None:
-            session = self.session_service.get(self.call_sid, self.session_id)
-            if session is not None:
-                max_digits = session.Config.DTMF.MaxDigits
-                timeout = session.Config.DTMF.Timeout
+        if self.session is not None:
+            max_digits = self.session.Config.DTMF.MaxDigits
+            timeout = self.session.Config.DTMF.Timeout
 
         # If we hit max_digits, we want to trigger the callback immediately rather than wait for more input
         if len(self.buffer) >= max_digits:

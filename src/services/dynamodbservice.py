@@ -4,6 +4,7 @@ from abc import ABC
 import boto3
 from botocore.exceptions import ClientError, TokenRetrievalError
 
+from src.utils.env import AWS_REGION
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -16,7 +17,7 @@ class DynamoDBService(ABC):
         self.table_name = name
         self.table = None
         try:
-            self.dyn_resource = boto3.resource("dynamodb", region_name="us-east-1")
+            self.dyn_resource = boto3.resource("dynamodb", region_name=AWS_REGION)
         except Exception as e:
             logger.error(
                 "Unable to connect to DynamoDB",

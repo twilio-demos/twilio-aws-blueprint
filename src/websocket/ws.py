@@ -161,12 +161,25 @@ async def websocket_endpoint(websocket: WebSocket):
         except WebSocketDisconnect:
             logger.info(
                 "WebSocket disconnected",
-                {"sessionId": handler.session_id, "callSid": handler.call_sid},
+                {
+                    "sessionId": handler.session.SessionId
+                    if handler.session is not None
+                    else "unknown",
+                    "callSid": handler.session.CallSid
+                    if handler.session is not None
+                    else "unknown",
+                },
             )
             handler.process_disconnect()
         except Exception as e:
             logger.error(
-                "WebSocket error", {"sessionId": handler.session_id, "error": str(e)}
+                "WebSocket error",
+                {
+                    "sessionId": handler.session.SessionId
+                    if handler.session is not None
+                    else "unknown",
+                    "error": str(e),
+                },
             )
             await websocket.close()
 
