@@ -4,8 +4,8 @@ from abc import ABC
 import boto3
 from botocore.exceptions import ClientError, TokenRetrievalError
 
-from src.utils.logger import get_logger
 from src.utils.env import AWS_REGION
+from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -206,4 +206,31 @@ class DynamoDBService(ABC):
             )
 
     def object_to_dict(self, python_obj) -> dict:
-        return json.loads(json.dumps(python_obj, default=lambda o: o.__dict__))
+        """Convert a Python object to a dictionary suitable for DynamoDB."""
+        from datetime import datetime
+        from decimal import Decimal
+        from enum import Enum
+
+        from pydantic import BaseModel
+
+        # If it's a Pydantic model, use model_dump directly to avoid circular references
+        if isinstance(python_obj, BaseModel):
+            return python_obj.model_dump()
+
+        def default_serializer(obj):
+            if isinstance(obj, Decimal):
+                # Keep Decimals as Decimals for DynamoDB
+                return obj
+            elif isinstance(obj, datetime):
+                return obj.isoformat()
+            elif isinstance(obj, Enum):
+                return obj.value
+            elif isinstance(obj, BaseModel):
+                return obj.model_dump()
+            elif hasattr(obj, "__dict__"):
+                return obj.__dict__
+            else:
+                return str(obj)
+
+        # Use json serialization only for non-Pydantic objects
+        return json.loads(json.dumps(python_obj, default=default_serializer))

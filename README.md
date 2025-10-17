@@ -115,16 +115,16 @@ requirements.txt                 # Python dependencies
 
 ### Optional Configuration
 
-| Variable                | Description                                                        | Default                                  |
-|-------------------------|--------------------------------------------------------------------|------------------------------------------|
-| `LOG_LEVEL`             | Logging level                                                      | `INFO`                                   |
-| `WELCOME_GREETING`      | Greeting message when the assistant starts                         | `Hello! I'm your AI assistant. How can I help you today?` |
-| `DTMF_MAX_DIGITS`       | Maximum number of digits accepted in DTMF input                    | `10`                                     |
-| `DTMF_TIMEOUT`          | Timeout (in seconds) for DTMF input                                | `3`                                      |
-| `IDLE_REMINDER`         | Reminder message when idle                                         | `I'm still here, let me know when you are ready to continue.` |
-| `IDLE_MAX_ATTEMPTS`     | Maximum number of idle attempts before action                      | `3`                                      |
-| `IDLE_TIMEOUT`          | Idle timeout duration in seconds                                   | `20`                                     |
-| `ERROR_MAX_ATTEMPTS`    | Maximum number of error retries                                    | `5`                                      |
+| Variable             | Description                                     | Default                                                       |
+| -------------------- | ----------------------------------------------- | ------------------------------------------------------------- |
+| `LOG_LEVEL`          | Logging level                                   | `INFO`                                                        |
+| `WELCOME_GREETING`   | Greeting message when the assistant starts      | `Hello! I'm your AI assistant. How can I help you today?`     |
+| `DTMF_MAX_DIGITS`    | Maximum number of digits accepted in DTMF input | `10`                                                          |
+| `DTMF_TIMEOUT`       | Timeout (in seconds) for DTMF input             | `3`                                                           |
+| `IDLE_REMINDER`      | Reminder message when idle                      | `I'm still here, let me know when you are ready to continue.` |
+| `IDLE_MAX_ATTEMPTS`  | Maximum number of idle attempts before action   | `3`                                                           |
+| `IDLE_TIMEOUT`       | Idle timeout duration in seconds                | `20`                                                          |
+| `ERROR_MAX_ATTEMPTS` | Maximum number of error retries                 | `5`                                                           |
 
 ### Optional Language Configuration
 
@@ -132,15 +132,14 @@ For each of the below options, you may include multiple values separated by `|` 
 
 For valid parameters for text-to-speech and speech-to-text configuration, please consult the [ConversationRelay documentation](https://www.twilio.com/docs/voice/conversationrelay/conversationrelay-noun).
 
-| Variable                | Description                                                        | Default                                  |
-|-------------------------|--------------------------------------------------------------------|------------------------------------------|
-| `LANGUAGE`              | Language code(s) for recognition and responses.                    | `en-US`                                  |
-| `TTS_PROVIDER`          | Text-to-Speech service provider.                                   | `ElevenLabs`                             |
-| `TTS_VOICE`             | Voice identifier(s) for the TTS provider.                          | `lxYfHSkYm1EzQzGhdbfc`                   |
-| `TRANSCRIPTION_PROVIDER`| Speech-to-Text service provider.                                   | `Deepgram`                               |
-| `SPEECH_MODEL`          | Model(s) used for speech transcription.                            | `nova-3-general`                         |
-| `INITIAL_HINTS`         | Initial hints for speech recognition. Each hint is separated by `,` (comma). | (empty)                                |
-
+| Variable                 | Description                                                                  | Default                |
+| ------------------------ | ---------------------------------------------------------------------------- | ---------------------- |
+| `LANGUAGE`               | Language code(s) for recognition and responses.                              | `en-US`                |
+| `TTS_PROVIDER`           | Text-to-Speech service provider.                                             | `ElevenLabs`           |
+| `TTS_VOICE`              | Voice identifier(s) for the TTS provider.                                    | `lxYfHSkYm1EzQzGhdbfc` |
+| `TRANSCRIPTION_PROVIDER` | Speech-to-Text service provider.                                             | `Deepgram`             |
+| `SPEECH_MODEL`           | Model(s) used for speech transcription.                                      | `nova-3-general`       |
+| `INITIAL_HINTS`          | Initial hints for speech recognition. Each hint is separated by `,` (comma). | (empty)                |
 
 ## Twilio Configuration
 

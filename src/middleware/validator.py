@@ -14,6 +14,9 @@ validator = RequestValidator(TWILIO_AUTH_TOKEN)
 
 
 class RequestValidatorMiddleware(BaseHTTPMiddleware):
+    # Paths that do not require validation
+    EXCLUDED_PATHS = {"/", "/health"}
+
     async def parse_params(self, request: Request):
         # Get content type
         content_type = request.headers.get("content-type", "")
@@ -42,6 +45,10 @@ class RequestValidatorMiddleware(BaseHTTPMiddleware):
         return params
 
     async def dispatch(self, request: Request, call_next):
+        # Skip validation for excluded paths
+        if request.url.path in self.EXCLUDED_PATHS:
+            return await call_next(request)
+
         # Get request body based on content type
         params = await self.parse_params(request)
 
