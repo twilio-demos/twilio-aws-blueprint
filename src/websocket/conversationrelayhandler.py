@@ -70,6 +70,7 @@ class ConversationRelayHandler:
         session_id = message.sessionId
         call_sid = message.callSid
         new_session = True
+        resume_error = False
         hints = None
         language = None
         greeting = WELCOME_GREETING
@@ -124,6 +125,8 @@ class ConversationRelayHandler:
             if new_session:
                 self.idle_minder.handle_activity(False, greeting)
                 self.thread_service.append(self.session, greeting, MessageType.system)
+            elif resume_error:
+                self.idle_minder.handle_activity(False, "")
 
         # TODO: Initialize AI agent session
         # TODO: Send welcome message if needed
@@ -158,23 +161,24 @@ class ConversationRelayHandler:
             #         ["Wilkoff", "Bossong", "Rice", "Wigand"], "Which doctor?"
             #     )
 
+            full_response = ""
             async for chunk in self.agent_runner.stream_request(
                 message.voicePrompt, self.session.ThreadId
             ):
                 logger.debug("Stream chunk:", {"chunk": chunk})
                 if chunk["type"] == "content":
+                    response_token = str(chunk["data"])
                     response = TextTokenMessage(
-                        type="text", token=str(chunk["data"]), last=False
+                        type="text", token=response_token, last=False
                     )
-                    logger.info("Sending text token to Twilio", {"text": response})
+                    full_response += response_token
                     await self.send_message(response)
-                    self.idle_minder.handle_activity(False, str(chunk["data"]))
+                    self.idle_minder.clear()  # Prevent idle detection while LLM is streaming
 
             # Send last message to indicate end of response
             response = TextTokenMessage(type="text", token="", last=True)
-            logger.info("Sending text token to Twilio", {"text": response})
             await self.send_message(response)
-            self.idle_minder.handle_activity(False, "")
+            self.idle_minder.handle_activity(False, full_response)
 
     async def handle_dtmf_message(self, message: DTMFMessage):
         """Handle DTMF digit from caller"""
