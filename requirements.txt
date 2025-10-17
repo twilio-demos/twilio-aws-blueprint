@@ -8,3 +8,8 @@ python-dotenv
 python-multipart
 pyright
 ruff
+langgraph>=0.6.9
+langchain-aws>=0.2.35
+langchain-core
+typing-extensions
+pydantic_settings

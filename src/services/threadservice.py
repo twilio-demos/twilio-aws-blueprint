@@ -36,6 +36,23 @@ class ThreadService(DynamoDBService):
         super()._add_item(message)
         return message
 
+    def append_rich_message(self, message: Message) -> Message:
+        """
+        Append a pre-built rich message to the thread.
+
+        Args:
+            message: The Message object to append
+
+        Returns:
+            Message: The appended message
+        """
+        thread_id = message.ThreadId
+        if thread_id not in self.thread_messages:
+            self.thread_messages[thread_id] = []
+        self.thread_messages[thread_id].append(message)
+        super()._add_item(message)
+        return message
+
     def get(self, session: Session) -> List[Message]:
         """Gets a thread from memory if present, otherwise from DynamoDB."""
 

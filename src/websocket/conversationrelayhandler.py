@@ -3,6 +3,7 @@ from typing import List
 
 from fastapi import WebSocket
 
+from src.ai.agent.core.agent_runner_factory import AgentRunnerFactory
 from src.services.sessionservice import instance as session_service
 from src.services.threadservice import instance as thread_service
 from src.types.conversationrelay import (
@@ -36,6 +37,7 @@ class ConversationRelayHandler:
         self.thread_service = thread_service
         self.dtmf_buffer = DtmfBuffer()
         self.idle_minder = IdleMinder(self.handle_idle)
+        self.agent_runner = AgentRunnerFactory.create_runner("langgraph")
 
     async def handle_idle(self, reached_max_attempts: bool):
         if reached_max_attempts:
@@ -144,29 +146,35 @@ class ConversationRelayHandler:
                 self.session, message.voicePrompt, MessageType.user
             )
 
-        # TODO: Process with AI agent
-        # TODO: Generate response
+            # if "spanish" in message.voicePrompt.lower():
+            #     await self.update_language("es-US")
+            #     return
+            # if "brazil" in message.voicePrompt.lower():
+            #     await self.update_language("pt-BR")
+            #     return
+            # # Hints testing
+            # if "need a doctor" in message.voicePrompt.lower():
+            #     await self.update_hints(
+            #         ["Wilkoff", "Bossong", "Rice", "Wigand"], "Which doctor?"
+            #     )
 
-        # Example response - replace with AI processing
-        sampleResponse = "I heard you say: " + message.voicePrompt
-        response = TextTokenMessage(type="text", token=sampleResponse, last=True)
-        await self.send_message(response)
+            async for chunk in self.agent_runner.stream_request(
+                message.voicePrompt, self.session.ThreadId
+            ):
+                logger.debug("Stream chunk:", {"chunk": chunk})
+                if chunk["type"] == "content":
+                    response = TextTokenMessage(
+                        type="text", token=str(chunk["data"]), last=False
+                    )
+                    logger.info("Sending text token to Twilio", {"text": response})
+                    await self.send_message(response)
+                    self.idle_minder.handle_activity(False, str(chunk["data"]))
 
-        self.idle_minder.handle_activity(False, sampleResponse)
-        if self.session is not None:
-            self.thread_service.append(self.session, sampleResponse, MessageType.agent)
-
-        if "spanish" in message.voicePrompt.lower():
-            await self.update_language("es-US")
-            return
-        if "brazil" in message.voicePrompt.lower():
-            await self.update_language("pt-BR")
-            return
-        # Hints testing
-        if "need a doctor" in message.voicePrompt.lower():
-            await self.update_hints(
-                ["Wilkoff", "Bossong", "Rice", "Wigand"], "Which doctor?"
-            )
+            # Send last message to indicate end of response
+            response = TextTokenMessage(type="text", token="", last=True)
+            logger.info("Sending text token to Twilio", {"text": response})
+            await self.send_message(response)
+            self.idle_minder.handle_activity(False, "")
 
     async def handle_dtmf_message(self, message: DTMFMessage):
         """Handle DTMF digit from caller"""
