@@ -63,6 +63,7 @@ requirements.txt                 # Python dependencies
 - Python 3.13+
 - AWS CLI configured with appropriate permissions
 - Twilio account
+- For local development: ngrok or similar tool to expose your local app endpoints
 - For Windows users: Bash shell
 
 ### Local Development
@@ -79,14 +80,16 @@ requirements.txt                 # Python dependencies
 
    ```bash
    cp .env.example .env
-   # Edit .env with your Twilio credentials
    ```
+   
+   Edit `.env` with your Twilio and AWS credentials:
    
    | Variable             | Description        | Example           |
    | -------------------- | ------------------ | ----------------- |
    | `TWILIO_ACCOUNT_SID` | Twilio Account SID | `ACxxxxxxxxx`     |
    | `TWILIO_AUTH_TOKEN`  | Twilio Auth Token  | `your-auth-token` |
    | `AWS_PROFILE`        | AWS CLI Profile    | `profile-name`    |
+   | `AWS_REGION`         | AWS Region         | `us-east-1`       |
 
 3. **Run locally**:
 
@@ -107,23 +110,23 @@ requirements.txt                 # Python dependencies
 
 1. Expose the app endpoints with **ngrok**:
 
-```bash
-ngrok http 8000
-```
+    ```bash
+    ngrok http 8000
+    ```
 
 2. Update **.env** with the **ngrok Forwarding URL** emitted by the previous step:
 
-```
-EXTERNAL_URL=https://abc123.ngrok.app
-```
+    ```
+    EXTERNAL_URL=https://abc123.ngrok.app
+    ```
 
 3. Run the app:
 
-```bash
-./dev.sh
-```
-
-(note: if you already had the app running, you'll need to restart it to pick up the updated values from **.env**!)
+    ```bash
+    ./dev.sh
+    ```
+    
+    (Note: If you already had the app running, you'll need to restart it to pick up the updated values from **.env**!)
 
 4. [Create a new TwiML app](https://console.twilio.com/us1/develop/voice/manage/twiml-apps?frameUrl=%2Fconsole%2Fvoice%2Ftwiml%2Fapps%3Fx-target-region%3Dus1) in the Twilio Console with the following settings:
 
@@ -174,16 +177,6 @@ For valid parameters for text-to-speech and speech-to-text configuration, please
 | `SPEECH_MODEL`           | Model(s) used for speech transcription.                                      | `nova-3-general`       |
 | `INITIAL_HINTS`          | Initial hints for speech recognition. Each hint is separated by `,` (comma). | (empty)                |
 
-## Twilio Configuration
-
-### 1. Configure Webhook URLs
-
-In your Twilio Console, set:
-
-- **Webhook URL**: `https://api.yourdomain.com/call/twiml`
-- **HTTP Method**: `POST`
-- **Webhook URL (Status Events)**: `https://api.yourdomain.com/call/action`
-
 ## API Endpoints
 
 ### Health Check
@@ -192,8 +185,8 @@ In your Twilio Console, set:
 
 ### Twilio Webhooks
 
-- **POST** `/call/twiml` - TwiML generation for incoming calls
-- **POST** `/call/action` - Call status events and actions
+- **POST** `/call/twiml` - `<Connect><ConversationRelay>` TwiML generation for incoming calls
+- **POST** `/call/action` - `<Connect>` action handler
 
 ### WebSocket
 
