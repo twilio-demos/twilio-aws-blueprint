@@ -16,19 +16,19 @@ def handle_handoff(request: Request, session: Optional[Session]):
     call_sid = params.get("CallSid")
     session_id = params.get("SessionId")
     handoff_data = json.loads(params.get("HandoffData"))
+    language = handoff_data.get(
+        "language", session.Config.Lang if session is not None else None
+    )
 
     if "result" in handoff_data:
         match handoff_data.get("result"):
             case "idle":
-                twiml_response = create_idle_twiml()
+                twiml_response = create_idle_twiml(language)
                 return Response(content=twiml_response, media_type="text/xml")
             case "hint":
                 # Restart the session with a new list of hints.
                 host = request.headers.get("host")
                 action_url = str(request.url)
-                language = handoff_data.get(
-                    "language", session.Config.Lang if session is not None else None
-                )
 
                 twiml_response = create_initial_twiml(
                     action_url,
@@ -41,5 +41,5 @@ def handle_handoff(request: Request, session: Optional[Session]):
 
                 return Response(content=twiml_response, media_type="text/xml")
 
-    twiml_response = create_error_twiml()
+    twiml_response = create_error_twiml(language)
     return Response(content=twiml_response, media_type="text/xml")

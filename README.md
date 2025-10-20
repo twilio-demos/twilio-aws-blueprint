@@ -154,10 +154,8 @@ requirements.txt                 # Python dependencies
 | Variable             | Description                                     | Default                                                       |
 | -------------------- | ----------------------------------------------- | ------------------------------------------------------------- |
 | `LOG_LEVEL`          | Logging level                                   | `INFO`                                                        |
-| `WELCOME_GREETING`   | Greeting message when the assistant starts      | `Hello! I'm your AI assistant. How can I help you today?`     |
 | `DTMF_MAX_DIGITS`    | Maximum number of digits accepted in DTMF input | `10`                                                          |
 | `DTMF_TIMEOUT`       | Timeout (in seconds) for DTMF input             | `3`                                                           |
-| `IDLE_REMINDER`      | Reminder message when idle                      | `I'm still here, let me know when you are ready to continue.` |
 | `IDLE_MAX_ATTEMPTS`  | Maximum number of idle attempts before action   | `3`                                                           |
 | `IDLE_TIMEOUT`       | Idle timeout duration in seconds                | `20`                                                          |
 | `ERROR_MAX_ATTEMPTS` | Maximum number of error retries                 | `5`                                                           |
@@ -173,9 +171,15 @@ For valid parameters for text-to-speech and speech-to-text configuration, please
 | `LANGUAGE`               | Language code(s) for recognition and responses.                              | `en-US`                |
 | `TTS_PROVIDER`           | Text-to-Speech service provider.                                             | `ElevenLabs`           |
 | `TTS_VOICE`              | Voice identifier(s) for the TTS provider.                                    | `lxYfHSkYm1EzQzGhdbfc` |
+| `FALLBACK_TTS`           | Voice identifier(s) for the non-ConverationRelay TTS messages.               | `Google.en-US-Chirp3-HD-Aoede` |
 | `TRANSCRIPTION_PROVIDER` | Speech-to-Text service provider.                                             | `Deepgram`             |
 | `SPEECH_MODEL`           | Model(s) used for speech transcription.                                      | `nova-3-general`       |
 | `INITIAL_HINTS`          | Initial hints for speech recognition. Each hint is separated by `,` (comma). | (empty)                |
+| `WELCOME_GREETING`       | Greeting message when the assistant starts                                   | `Hello! I'm your AI assistant. How can I help you today?` |
+| `WELCOME_ERROR_PROMPT`   | Greeting message when the ConversationRelay TwiML fails to generate          | `I'm sorry, there was an error starting the conversation. Please try again later.` |
+| `IDLE_REMINDER`          | Reminder message when idle                                                   | `I'm still here, let me know when you are ready to continue.` |
+| `IDLE_TIMEOUT_PROMPT`    | Message after the maximum number of idle reminders have triggered            | `I'm sorry, I haven't heard you respond in a while. Please try your call again.` |
+| `ERROR_PROMPT`           | Message when an error occurs during the conversation                         | `I'm sorry, a problem occurred while handling your call. Please try your call again.` |
 
 ## API Endpoints
 
