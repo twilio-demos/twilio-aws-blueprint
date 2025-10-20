@@ -81,7 +81,7 @@ async def call_twiml(request: Request):
             "Error generating ConversationRelay TwiML",
             {
                 "error": str(error),
-                "body": params if params is not None else None,
+                "body": params,
             },
         )
 
