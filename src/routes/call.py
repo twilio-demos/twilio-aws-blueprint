@@ -18,6 +18,7 @@ logger = get_logger(__name__)
 
 @router.post("/twiml")
 async def call_twiml(request: Request):
+    params = None
     try:
         # Get parsed request body
         params = request.state.twilio_params
@@ -80,12 +81,14 @@ async def call_twiml(request: Request):
             "Error generating ConversationRelay TwiML",
             {
                 "error": str(error),
-                "body": params if "params" in locals() else None,
+                "body": params,
             },
         )
 
         # Return a simple fallback TwiML on error
-        fallback_twiml = create_fallback_twiml()
+        fallback_twiml = create_fallback_twiml(
+            params.get("language") if params is not None else None
+        )
 
         return Response(content=fallback_twiml, media_type="text/xml")
 
@@ -153,7 +156,7 @@ async def call_action(request: Request):
                         hit_max_errors = True
 
                 if hit_max_errors:
-                    twiml_response = create_error_twiml()
+                    twiml_response = create_error_twiml(initial_language)
 
                     logger.info(
                         "ConversationRelay maximum errors limit reached",

@@ -18,7 +18,11 @@ from src.types.conversationrelay import (
     TextTokenMessage,
 )
 from src.types.models import MessageType, Session
-from src.utils.env import IDLE_REMINDER, WELCOME_GREETING
+from src.utils.env import (
+    IDLE_REMINDER,
+    WELCOME_GREETING,
+    get_for_language,
+)
 from src.utils.logger import get_logger
 
 from .dtmfbuffer import DtmfBuffer
@@ -46,12 +50,18 @@ class ConversationRelayHandler:
             await self.send_message(response)
             return
 
-        # TODO: LLM probably needs to know about this.
-        response = TextTokenMessage(type="text", token=IDLE_REMINDER, last=True)
-        await self.send_message(response)
-        self.idle_minder.handle_activity(True, IDLE_REMINDER)
+        prompt = get_for_language(
+            IDLE_REMINDER,
+            self.session.Config.Lang if self.session is not None else None,
+        )
+
+        response = TextTokenMessage(type="text", token=prompt, last=True)
+        await self.send_message(
+            response
+        )  # TODO: LLM probably needs to know about this.
+        self.idle_minder.handle_activity(True, prompt)
         if self.session is not None:
-            self.thread_service.append(self.session, IDLE_REMINDER, MessageType.system)
+            self.thread_service.append(self.session, prompt, MessageType.system)
 
     async def handle_setup_message(self, message: SetupMessage):
         """Handle setup message from Twilio"""
