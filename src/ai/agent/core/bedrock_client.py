@@ -9,8 +9,8 @@ class BedrockClientFactory:
         # Prepare base configuration
         llm_config = {
             "model": agent_config.model_name,
-            "temperature": 0,
-            "max_tokens": 4000,
+            "temperature": agent_config.temperature,
+            "max_tokens": agent_config.max_tokens,
             "region_name": agent_config.region_name,
             "performance_config": {
                 "latency": "optimized",
@@ -22,9 +22,9 @@ class BedrockClientFactory:
             llm_config["guardrails"] = {
                 "guardrailIdentifier": agent_config.guardrail_id,
                 "guardrailVersion": agent_config.guardrail_version,
-                "trace": "enabled",
+                "trace": agent_config.guardrail_trace,
             }
-            llm_config["guard_last_turn_only"] = True
+            llm_config["guard_last_turn_only"] = agent_config.guard_last_turn_only
 
         llm_with_guardrails = ChatBedrockConverse(**llm_config)
         return llm_with_guardrails

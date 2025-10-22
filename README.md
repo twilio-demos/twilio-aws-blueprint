@@ -81,9 +81,9 @@ requirements.txt                 # Python dependencies
    ```bash
    cp .env.example .env
    ```
-   
+
    Edit `.env` with your Twilio and AWS credentials:
-   
+
    | Variable             | Description        | Example           |
    | -------------------- | ------------------ | ----------------- |
    | `TWILIO_ACCOUNT_SID` | Twilio Account SID | `ACxxxxxxxxx`     |
@@ -110,28 +110,28 @@ requirements.txt                 # Python dependencies
 
 1. Expose the app endpoints with **ngrok**:
 
-    ```bash
-    ngrok http 8000
-    ```
+   ```bash
+   ngrok http 8000
+   ```
 
 2. Update **.env** with the **ngrok Forwarding URL** emitted by the previous step:
 
-    ```
-    EXTERNAL_URL=https://abc123.ngrok.app
-    ```
+   ```
+   EXTERNAL_URL=https://abc123.ngrok.app
+   ```
 
 3. Run the app:
 
-    ```bash
-    ./dev.sh
-    ```
-    
-    (Note: If you already had the app running, you'll need to restart it to pick up the updated values from **.env**!)
+   ```bash
+   ./dev.sh
+   ```
+
+   (Note: If you already had the app running, you'll need to restart it to pick up the updated values from **.env**!)
 
 4. [Create a new TwiML app](https://console.twilio.com/us1/develop/voice/manage/twiml-apps?frameUrl=%2Fconsole%2Fvoice%2Ftwiml%2Fapps%3Fx-target-region%3Dus1) in the Twilio Console with the following settings:
 
-    - **Friendly Name**: Enter a name of your choosing.
-    - **Voice Configuration Request URL**: `https://your-ngrok-url-here.ngrok.app/call/twiml`
+   - **Friendly Name**: Enter a name of your choosing.
+   - **Voice Configuration Request URL**: `https://your-ngrok-url-here.ngrok.app/call/twiml`
 
 5. [Configure a phone number](https://console.twilio.com/us1/develop/phone-numbers/manage/incoming) to point to the TwiML app you just created.
 
@@ -151,14 +151,14 @@ requirements.txt                 # Python dependencies
 
 ### Optional Configuration
 
-| Variable             | Description                                     | Default                                                       |
-| -------------------- | ----------------------------------------------- | ------------------------------------------------------------- |
-| `LOG_LEVEL`          | Logging level                                   | `INFO`                                                        |
-| `DTMF_MAX_DIGITS`    | Maximum number of digits accepted in DTMF input | `10`                                                          |
-| `DTMF_TIMEOUT`       | Timeout (in seconds) for DTMF input             | `3`                                                           |
-| `IDLE_MAX_ATTEMPTS`  | Maximum number of idle attempts before action   | `3`                                                           |
-| `IDLE_TIMEOUT`       | Idle timeout duration in seconds                | `20`                                                          |
-| `ERROR_MAX_ATTEMPTS` | Maximum number of error retries                 | `5`                                                           |
+| Variable             | Description                                     | Default |
+| -------------------- | ----------------------------------------------- | ------- |
+| `LOG_LEVEL`          | Logging level                                   | `INFO`  |
+| `DTMF_MAX_DIGITS`    | Maximum number of digits accepted in DTMF input | `10`    |
+| `DTMF_TIMEOUT`       | Timeout (in seconds) for DTMF input             | `3`     |
+| `IDLE_MAX_ATTEMPTS`  | Maximum number of idle attempts before action   | `3`     |
+| `IDLE_TIMEOUT`       | Idle timeout duration in seconds                | `20`    |
+| `ERROR_MAX_ATTEMPTS` | Maximum number of error retries                 | `5`     |
 
 ### Optional Language Configuration
 
@@ -166,20 +166,36 @@ For each of the below options, you may include multiple values separated by `|` 
 
 For valid parameters for text-to-speech and speech-to-text configuration, please consult the [ConversationRelay documentation](https://www.twilio.com/docs/voice/conversationrelay/conversationrelay-noun).
 
-| Variable                 | Description                                                                  | Default                |
-| ------------------------ | ---------------------------------------------------------------------------- | ---------------------- |
-| `LANGUAGE`               | Language code(s) for recognition and responses.                              | `en-US`                |
-| `TTS_PROVIDER`           | Text-to-Speech service provider.                                             | `ElevenLabs`           |
-| `TTS_VOICE`              | Voice identifier(s) for the TTS provider.                                    | `lxYfHSkYm1EzQzGhdbfc` |
-| `FALLBACK_TTS`           | Voice identifier(s) for the non-ConverationRelay TTS messages.               | `Google.en-US-Chirp3-HD-Aoede` |
-| `TRANSCRIPTION_PROVIDER` | Speech-to-Text service provider.                                             | `Deepgram`             |
-| `SPEECH_MODEL`           | Model(s) used for speech transcription.                                      | `nova-3-general`       |
-| `INITIAL_HINTS`          | Initial hints for speech recognition. Each hint is separated by `,` (comma). | (empty)                |
-| `WELCOME_GREETING`       | Greeting message when the assistant starts                                   | `Hello! I'm your AI assistant. How can I help you today?` |
-| `WELCOME_ERROR_PROMPT`   | Greeting message when the ConversationRelay TwiML fails to generate          | `I'm sorry, there was an error starting the conversation. Please try again later.` |
-| `IDLE_REMINDER`          | Reminder message when idle                                                   | `I'm still here, let me know when you are ready to continue.` |
-| `IDLE_TIMEOUT_PROMPT`    | Message after the maximum number of idle reminders have triggered            | `I'm sorry, I haven't heard you respond in a while. Please try your call again.` |
+| Variable                 | Description                                                                  | Default                                                                               |
+| ------------------------ | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `LANGUAGE`               | Language code(s) for recognition and responses.                              | `en-US`                                                                               |
+| `TTS_PROVIDER`           | Text-to-Speech service provider.                                             | `ElevenLabs`                                                                          |
+| `TTS_VOICE`              | Voice identifier(s) for the TTS provider.                                    | `lxYfHSkYm1EzQzGhdbfc`                                                                |
+| `FALLBACK_TTS`           | Voice identifier(s) for the non-ConverationRelay TTS messages.               | `Google.en-US-Chirp3-HD-Aoede`                                                        |
+| `TRANSCRIPTION_PROVIDER` | Speech-to-Text service provider.                                             | `Deepgram`                                                                            |
+| `SPEECH_MODEL`           | Model(s) used for speech transcription.                                      | `nova-3-general`                                                                      |
+| `INITIAL_HINTS`          | Initial hints for speech recognition. Each hint is separated by `,` (comma). | (empty)                                                                               |
+| `WELCOME_GREETING`       | Greeting message when the assistant starts                                   | `Hello! I'm your AI assistant. How can I help you today?`                             |
+| `WELCOME_ERROR_PROMPT`   | Greeting message when the ConversationRelay TwiML fails to generate          | `I'm sorry, there was an error starting the conversation. Please try again later.`    |
+| `IDLE_REMINDER`          | Reminder message when idle                                                   | `I'm still here, let me know when you are ready to continue.`                         |
+| `IDLE_TIMEOUT_PROMPT`    | Message after the maximum number of idle reminders have triggered            | `I'm sorry, I haven't heard you respond in a while. Please try your call again.`      |
 | `ERROR_PROMPT`           | Message when an error occurs during the conversation                         | `I'm sorry, a problem occurred while handling your call. Please try your call again.` |
+
+### Optional AWS Bedrock Configuration
+
+| Variable                       | Description                                                                                    | Default                                       |
+| ------------------------------ | ---------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `BEDROCK_MODEL`                | Amazon Bedrock model identifier                                                                | `us.anthropic.claude-3-5-haiku-20241022-v1:0` |
+| `BEDROCK_REGION`               | AWS region for Bedrock service                                                                 | `us-east-2`                                   |
+| `BEDROCK_TEMPERATURE`          | Model temperature (0.0-1.0, controls randomness)                                               | `0`                                           |
+| `BEDROCK_MAX_TOKENS`           | Maximum tokens the model can generate                                                          | `4000`                                        |
+| `BEDROCK_GUARDRAIL_ID`         | Bedrock guardrail identifier for content filtering (if not set, no guardrails will be applied) | None (optional)                               |
+| `BEDROCK_GUARDRAIL_VERSION`    | Version of the guardrail to use                                                                | `DRAFT`                                       |
+| `BEDROCK_GUARD_LAST_TURN_ONLY` | Apply guardrails only to the last conversation turn                                            | `true`                                        |
+| `BEDROCK_GUARDRAIL_TRACE`      | Enable tracing for guardrail evaluation debugging                                              | `enabled`                                     |
+| `BEDROCK_KB_ID`                | Knowledge base identifier for retrieval (if not set, knowledge base search is skipped)         | None (optional)                               |
+| `BEDROCK_RETRIEVAL_RESULTS`    | Number of results to retrieve from knowledge base                                              | `5`                                           |
+| `BEDROCK_MIN_SCORE_CONFIDENCE` | Minimum confidence score for retrieval results                                                 | `0.0`                                         |
 
 ## API Endpoints
 
