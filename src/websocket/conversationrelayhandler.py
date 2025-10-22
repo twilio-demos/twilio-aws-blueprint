@@ -18,11 +18,7 @@ from src.types.conversationrelay import (
     TextTokenMessage,
 )
 from src.types.models import MessageType, Session
-from src.utils.env import (
-    IDLE_REMINDER,
-    WELCOME_GREETING,
-    get_for_language,
-)
+from src.utils.language import load_language
 from src.utils.logger import get_logger
 
 from .dtmfbuffer import DtmfBuffer
@@ -50,10 +46,9 @@ class ConversationRelayHandler:
             await self.send_message(response)
             return
 
-        prompt = get_for_language(
-            IDLE_REMINDER,
-            self.session.Config.Lang if self.session is not None else None,
-        )
+        prompt = load_language(
+            self.session.Config.Lang if self.session is not None else None
+        ).prompts.idle
 
         response = TextTokenMessage(type="text", token=prompt, last=True)
         await self.send_message(
@@ -83,7 +78,7 @@ class ConversationRelayHandler:
         resume_error = False
         hints = None
         language = None
-        greeting = WELCOME_GREETING
+        greeting = ""
         if message.customParameters is not None:
             # Persist custom settings to the session
             hints = message.customParameters.get("initial_hints", hints)

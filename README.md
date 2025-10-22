@@ -151,35 +151,40 @@ requirements.txt                 # Python dependencies
 
 ### Optional Configuration
 
-| Variable             | Description                                     | Default |
-| -------------------- | ----------------------------------------------- | ------- |
-| `LOG_LEVEL`          | Logging level                                   | `INFO`  |
-| `DTMF_MAX_DIGITS`    | Maximum number of digits accepted in DTMF input | `10`    |
-| `DTMF_TIMEOUT`       | Timeout (in seconds) for DTMF input             | `3`     |
-| `IDLE_MAX_ATTEMPTS`  | Maximum number of idle attempts before action   | `3`     |
-| `IDLE_TIMEOUT`       | Idle timeout duration in seconds                | `20`    |
-| `ERROR_MAX_ATTEMPTS` | Maximum number of error retries                 | `5`     |
+| Variable             | Description                                                                  | Default |
+| -------------------- | ---------------------------------------------------------------------------- | ------- |
+| `LANGUAGE`           | Default language for recognition and responses.                              | `en-US` |
+| `LOG_LEVEL`          | Logging level                                                                | `INFO`  |
+| `DTMF_MAX_DIGITS`    | Maximum number of digits accepted in DTMF input                              | `10`    |
+| `DTMF_TIMEOUT`       | Timeout (in seconds) for DTMF input                                          | `3`     |
+| `IDLE_MAX_ATTEMPTS`  | Maximum number of idle attempts before action                                | `3`     |
+| `IDLE_TIMEOUT`       | Idle timeout duration in seconds                                             | `20`    |
+| `ERROR_MAX_ATTEMPTS` | Maximum number of error retries                                              | `5`     |
 
-### Optional Language Configuration
+### Language Configuration
 
-For each of the below options, you may include multiple values separated by `|` (pipe) in order to specify configuration for multiple languages. If you do so, each option must include the same number of values.
+You may define language configurations using the following YAML format by placing files in the `src/languages` directory. Each language file should be named using a valid ConversationRelay language code (i.e. `en-US`, `pt-BR`, `multi`, etc).
 
-For valid parameters for text-to-speech and speech-to-text configuration, please consult the [ConversationRelay documentation](https://www.twilio.com/docs/voice/conversationrelay/conversationrelay-noun).
+When no `language` parameter is specified in the URL, the file corresponding to the `LANGUAGE` environment variable is used. Languages can also be switched at runtime.
 
-| Variable                 | Description                                                                  | Default                                                                               |
-| ------------------------ | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `LANGUAGE`               | Language code(s) for recognition and responses.                              | `en-US`                                                                               |
-| `TTS_PROVIDER`           | Text-to-Speech service provider.                                             | `ElevenLabs`                                                                          |
-| `TTS_VOICE`              | Voice identifier(s) for the TTS provider.                                    | `lxYfHSkYm1EzQzGhdbfc`                                                                |
-| `FALLBACK_TTS`           | Voice identifier(s) for the non-ConverationRelay TTS messages.               | `Google.en-US-Chirp3-HD-Aoede`                                                        |
-| `TRANSCRIPTION_PROVIDER` | Speech-to-Text service provider.                                             | `Deepgram`                                                                            |
-| `SPEECH_MODEL`           | Model(s) used for speech transcription.                                      | `nova-3-general`                                                                      |
-| `INITIAL_HINTS`          | Initial hints for speech recognition. Each hint is separated by `,` (comma). | (empty)                                                                               |
-| `WELCOME_GREETING`       | Greeting message when the assistant starts                                   | `Hello! I'm your AI assistant. How can I help you today?`                             |
-| `WELCOME_ERROR_PROMPT`   | Greeting message when the ConversationRelay TwiML fails to generate          | `I'm sorry, there was an error starting the conversation. Please try again later.`    |
-| `IDLE_REMINDER`          | Reminder message when idle                                                   | `I'm still here, let me know when you are ready to continue.`                         |
-| `IDLE_TIMEOUT_PROMPT`    | Message after the maximum number of idle reminders have triggered            | `I'm sorry, I haven't heard you respond in a while. Please try your call again.`      |
-| `ERROR_PROMPT`           | Message when an error occurs during the conversation                         | `I'm sorry, a problem occurred while handling your call. Please try your call again.` |
+An example language file for `en-US` is included by default and can be used as a template. For valid parameters for text-to-speech and speech-to-text configuration, please consult the [ConversationRelay documentation](https://www.twilio.com/docs/voice/conversationrelay/conversationrelay-noun).
+
+```yaml
+prompts:
+  welcome_greeting: The initial prompt that plays when starting a new session without specifying a welcome_greeting parameter in the URL
+  welcome_error: The message when failing to generate the initial <ConversationRelay> TwiML
+  error: The message when an error occurs during the conversation
+  idle: The message when no input is detected from the user after IDLE_TIMEOUT seconds
+  idle_timeout: The message when the session is ended due to no input being detected from the user IDLE_MAX_ATTEMPTS times
+
+settings:
+  initial_hints: Optional initial hints for speech recognition. Each hint is separated by `,` (comma)
+  transcription_provider: Speech-to-text service provider
+  speech_model: Model used for speech transcription
+  tts_provider: Text-to-speech service provider
+  tts_voice: Voice identifier(s) for the TTS provider
+  fallback_tts: Voice identifier(s) for non-ConverationRelay TTS messages
+```
 
 ### Optional AWS Bedrock Configuration
 
@@ -206,6 +211,11 @@ For valid parameters for text-to-speech and speech-to-text configuration, please
 ### Twilio Webhooks
 
 - **POST** `/call/twiml` - `<Connect><ConversationRelay>` TwiML generation for incoming calls
+  - Optional query parameters:
+    - `language` - The language to use by default (overrides the `LANGUAGE` environment variable)
+    - `welcome_greeting` - The welcome greeting to use (overrides the `welcome_greeting` from the language file)
+    - `initial_hints` - The initial speech recognition hints to use by default (overrides the `initial_hints` from the language file)
+    - `action_url` - Overrides the `<Connect>` action handler URL (`/call/action` by default)
 - **POST** `/call/action` - `<Connect>` action handler
 
 ### WebSocket

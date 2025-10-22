@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Literal, TypedDict
+from typing import Literal, Optional, TypedDict
 
 from pydantic import BaseModel, field_validator
 
@@ -8,9 +8,7 @@ from src.utils.env import (
     DTMF_TIMEOUT,
     IDLE_MAX_ATTEMPTS,
     IDLE_TIMEOUT,
-    INITIAL_HINTS,
     LANGUAGE,
-    SPLIT_CHAR,
 )
 from src.utils.logger import get_logger
 
@@ -41,8 +39,8 @@ class SessionIdleConfig(BaseModel):
 class SessionConfig(BaseModel):
     DTMF: SessionDTMFConfig = SessionDTMFConfig()
     Idle: SessionIdleConfig = SessionIdleConfig()
-    Hints: str = INITIAL_HINTS.split(SPLIT_CHAR)[0]
-    Lang: str = LANGUAGE.split(SPLIT_CHAR)[0]
+    Hints: str = ""
+    Lang: str = LANGUAGE
 
 
 class Session(BaseModel):
@@ -107,3 +105,25 @@ class Message(BaseModel):
 class StreamChunk(TypedDict):
     type: Literal["content", "agent", "metadata"]
     data: str | dict
+
+
+class LanguagePrompts(BaseModel):
+    welcome_greeting: str = "Hello! This is the default greeting."
+    welcome_error: str = "Hello! This is the default error greeting."
+    error: str = "This is the default error prompt."
+    idle: str = "This is the default idle prompt."
+    idle_timeout: str = "This is the default timeout prompt."
+
+
+class LanguageSettings(BaseModel):
+    initial_hints: Optional[str] = None
+    transcription_provider: str = "Deepgram"
+    speech_model: str = "nova-3-general"
+    tts_provider: str = "ElevenLabs"
+    tts_voice: str = "lxYfHSkYm1EzQzGhdbfc"
+    fallback_tts: str = "Google.en-US-Chirp3-HD-Aoede"
+
+
+class Language(BaseModel):
+    prompts: LanguagePrompts = LanguagePrompts()
+    settings: LanguageSettings = LanguageSettings()
