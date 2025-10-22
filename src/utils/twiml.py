@@ -2,10 +2,7 @@ from typing import Optional
 
 from twilio.twiml.voice_response import VoiceResponse
 
-from src.utils.env import (
-    INITIAL_HINTS,
-    LANGUAGE,
-)
+from src.utils.env import LANGUAGE
 from src.utils.language import list_languages, load_language
 from src.utils.logger import get_logger
 
@@ -31,9 +28,8 @@ def create_initial_twiml(
     connect = response.connect(action=connect_action_url)
 
     custom_lang = language or LANGUAGE
-    custom_hints = hints or INITIAL_HINTS
-
     lang_settings = load_language(custom_lang)
+    custom_hints = hints or lang_settings.settings.initial_hints
 
     conversation_relay = connect.conversation_relay(
         url=websocket_url,

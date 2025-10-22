@@ -160,7 +160,6 @@ requirements.txt                 # Python dependencies
 | `IDLE_MAX_ATTEMPTS`  | Maximum number of idle attempts before action                                | `3`     |
 | `IDLE_TIMEOUT`       | Idle timeout duration in seconds                                             | `20`    |
 | `ERROR_MAX_ATTEMPTS` | Maximum number of error retries                                              | `5`     |
-| `INITIAL_HINTS`      | Initial hints for speech recognition. Each hint is separated by `,` (comma). | (empty) |
 
 ### Language Configuration
 
@@ -179,6 +178,7 @@ prompts:
   idle_timeout: The message when the session is ended due to no input being detected from the user IDLE_MAX_ATTEMPTS times
 
 settings:
+  initial_hints: Optional initial hints for speech recognition. Each hint is separated by `,` (comma)
   transcription_provider: Speech-to-text service provider
   speech_model: Model used for speech transcription
   tts_provider: Text-to-speech service provider
@@ -214,7 +214,7 @@ settings:
   - Optional query parameters:
     - `language` - The language to use by default (overrides the `LANGUAGE` environment variable)
     - `welcome_greeting` - The welcome greeting to use (overrides the `welcome_greeting` from the language file)
-    - `initial_hints` - The initial speech recognition hints to use by default (overrides the `INITIAL_HINTS` environment variable)
+    - `initial_hints` - The initial speech recognition hints to use by default (overrides the `initial_hints` from the language file)
     - `action_url` - Overrides the `<Connect>` action handler URL (`/call/action` by default)
 - **POST** `/call/action` - `<Connect>` action handler
 

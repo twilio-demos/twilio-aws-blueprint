@@ -34,7 +34,6 @@ IDLE_TIMEOUT = int(os.getenv("IDLE_TIMEOUT", 20))
 
 # Additional configuration
 LANGUAGE = os.getenv("LANGUAGE", "en-US")
-INITIAL_HINTS = os.getenv("INITIAL_HINTS", "")
 DTMF_MAX_DIGITS = int(os.getenv("DTMF_MAX_DIGITS", 10))
 DTMF_TIMEOUT = int(os.getenv("DTMF_TIMEOUT", 3))
 ERROR_MAX_ATTEMPTS = int(os.getenv("ERROR_MAX_ATTEMPTS", 5))

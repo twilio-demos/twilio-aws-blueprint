@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Literal, TypedDict
+from typing import Literal, Optional, TypedDict
 
 from pydantic import BaseModel, field_validator
 
@@ -8,7 +8,6 @@ from src.utils.env import (
     DTMF_TIMEOUT,
     IDLE_MAX_ATTEMPTS,
     IDLE_TIMEOUT,
-    INITIAL_HINTS,
     LANGUAGE,
 )
 from src.utils.logger import get_logger
@@ -40,7 +39,7 @@ class SessionIdleConfig(BaseModel):
 class SessionConfig(BaseModel):
     DTMF: SessionDTMFConfig = SessionDTMFConfig()
     Idle: SessionIdleConfig = SessionIdleConfig()
-    Hints: str = INITIAL_HINTS
+    Hints: str = ""
     Lang: str = LANGUAGE
 
 
@@ -117,6 +116,7 @@ class LanguagePrompts(BaseModel):
 
 
 class LanguageSettings(BaseModel):
+    initial_hints: Optional[str] = None
     transcription_provider: str = "Deepgram"
     speech_model: str = "nova-3-general"
     tts_provider: str = "ElevenLabs"
