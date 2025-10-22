@@ -1,6 +1,6 @@
 # Twilio Conversation Relay Voice Agent
 
-A service for Twilio Conversation Relay - built with FastAPI and designed for AWS deployment. Supports webhooks, WebSocket streaming, and modular AI agent components and more to come ...
+A service for Twilio Conversation Relay - built with FastAPI and designed for AWS deployment. Supports webhooks, WebSocket streaming, and modular AI agent components with more to come...
 
 ## Features
 
@@ -12,50 +12,6 @@ A service for Twilio Conversation Relay - built with FastAPI and designed for AW
 - **SSL/TLS Support**: HTTPS endpoints for production Twilio webhooks
 - **Structured Logging**: Comprehensive logging for debugging and monitoring
 
-## Architecture
-
-## Project Structure
-
-```
-src/
-├── main.py                 # FastAPI application entry point
-├── config/
-│   └── __init__.py
-├── routes/
-│   ├── __init__.py
-│   └── call.py            # Twilio webhook endpoints (/call/twiml, /call/action)
-├── websocket/
-│   ├── __init__.py
-│   └── ws.py              # ConversationRelay WebSocket handler
-├── types/
-│   ├── __init__.py
-│   └── websocket.py       # Pydantic models for ConversationRelay messages
-├── utils/
-│   ├── __init__.py
-│   ├── env.py             # Environment variable management
-│   └── logger.py          # Structured logging configuration
-├── services/
-│   └── __init__.py
-├── stream/
-│   └── __init__.py
-├── ai/
-│   └── __init__.py
-├── persistence/
-│   └── __init__.py
-└── monitoring/
-    └── __init__.py
-
-deployment/
-├── cloudformation-template.yaml  # AWS infrastructure as code
-└── deploy.sh                    # Deployment script
-
-Dockerfile                       # Container configuration
-docker-compose.yml               # Local development setup
-requirements.txt                 # Python dependencies
-.dockerignore                   # Docker build context exclusions
-.gitignore                      # Git exclusions
-```
-
 ## Quick Start
 
 ### Prerequisites
@@ -66,7 +22,7 @@ requirements.txt                 # Python dependencies
 - For local development: ngrok or similar tool to expose your local app endpoints
 - For Windows users: Bash shell
 
-### Local Development
+### Local Development and Testing with Twilio and ngrok
 
 1. **Clone and setup**:
 
@@ -76,22 +32,25 @@ requirements.txt                 # Python dependencies
    ./setup.sh
    ```
 
-2. **Environment configuration**:
+2. Expose the app endpoints with **ngrok** in a standalone terminal:
 
    ```bash
-   cp .env.example .env
+   ngrok http 8000
    ```
 
-   Edit `.env` with your Twilio and AWS credentials:
+   (Note: When running, this will output a **Forwarding URL** that looks like this: `https://abc123.ngrok.app`. Take note of this, as we will use it in the following steps.)
 
-   | Variable             | Description        | Example           |
-   | -------------------- | ------------------ | ----------------- |
-   | `TWILIO_ACCOUNT_SID` | Twilio Account SID | `ACxxxxxxxxx`     |
-   | `TWILIO_AUTH_TOKEN`  | Twilio Auth Token  | `your-auth-token` |
-   | `AWS_PROFILE`        | AWS CLI Profile    | `profile-name`    |
-   | `AWS_REGION`         | AWS Region         | `us-east-1`       |
+3. Update **.env** with your Twilio and AWS credentials, as well as the **ngrok Forwarding URL** emitted by the previous step:
 
-3. **Run locally**:
+   | Variable             | Description          | Example                    |
+   | -------------------- | -------------------- | -------------------------- |
+   | `TWILIO_ACCOUNT_SID` | Twilio Account SID   | `ACxxxxxxxxx`              |
+   | `TWILIO_AUTH_TOKEN`  | Twilio Auth Token    | `your-auth-token`          |
+   | `AWS_PROFILE`        | AWS CLI Profile      | `profile-name`             |
+   | `AWS_REGION`         | AWS Region           | `us-east-1`                |
+   | `EXTERNAL_URL`       | ngrok forwarding URL | `https://abc123.ngrok.app` |
+
+4. Run the app:
 
    ```bash
    # Run directly
@@ -101,41 +60,17 @@ requirements.txt                 # Python dependencies
    docker-compose up --build
    ```
 
-4. **Test endpoints**:
-   ```bash
-   curl http://localhost:8000/
-   ```
-
-### Local Testing with Twilio
-
-1. Expose the app endpoints with **ngrok**:
-
-   ```bash
-   ngrok http 8000
-   ```
-
-2. Update **.env** with the **ngrok Forwarding URL** emitted by the previous step:
-
-   ```
-   EXTERNAL_URL=https://abc123.ngrok.app
-   ```
-
-3. Run the app:
-
-   ```bash
-   ./dev.sh
-   ```
-
    (Note: If you already had the app running, you'll need to restart it to pick up the updated values from **.env**!)
 
-4. [Create a new TwiML app](https://console.twilio.com/us1/develop/voice/manage/twiml-apps?frameUrl=%2Fconsole%2Fvoice%2Ftwiml%2Fapps%3Fx-target-region%3Dus1) in the Twilio Console with the following settings:
+5. [Create a new TwiML app](https://console.twilio.com/us1/develop/voice/manage/twiml-apps?frameUrl=%2Fconsole%2Fvoice%2Ftwiml%2Fapps%3Fx-target-region%3Dus1) in the Twilio Console with the following settings:
 
    - **Friendly Name**: Enter a name of your choosing.
-   - **Voice Configuration Request URL**: `https://your-ngrok-url-here.ngrok.app/call/twiml`
+   - **Voice Configuration Request URL**: `https://abc123.ngrok.app/call/twiml`
+     - Note: Replace `https://abc123.ngrok.app` with the **ngrok Forwarding URL** from the previous steps.
 
-5. [Configure a phone number](https://console.twilio.com/us1/develop/phone-numbers/manage/incoming) to point to the TwiML app you just created.
+6. [Configure a phone number](https://console.twilio.com/us1/develop/phone-numbers/manage/incoming) to point to the TwiML app you just created.
 
-6. Dial the configured phone number and chat away.
+7. Dial the configured phone number and chat away.
 
 ## Production Deployment on AWS
 

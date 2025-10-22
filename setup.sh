@@ -88,7 +88,7 @@ if [ ! -f ".env" ]; then
     cp .env.example .env
     echo_success ".env file created"
     echo ""
-    echo_warn "⚠️  IMPORTANT: Please edit .env file with your credentials:"
+    echo_warn "⚠️  IMPORTANT: Please edit the .env file with your credentials:"
     echo "1. Set your TWILIO_ACCOUNT_SID"
     echo "2. Set your TWILIO_AUTH_TOKEN"
     echo "3. Configure AWS credentials and region (see options below)"
@@ -98,12 +98,18 @@ else
     echo ""
 fi
 
+# Check existing AWS profiles
+if command_exists aws; then
+    echo_info "Existing AWS profiles:"
+    aws configure list-profiles 2>/dev/null || echo "  No profiles found"
+    echo ""
+fi
+
 # AWS Configuration
 echo_info "AWS Configuration Options:"
 echo ""
 echo "Option 1: AWS CLI Profile Configuration (Recommended)"
-echo "  # Use existing profile:"
-echo "  aws configure list-profiles"
+echo "  # Use existing profile from the list output above, if present"
 echo ""
 echo "  # Or create a new profile for this project:"
 echo "  aws configure sso"
@@ -116,18 +122,11 @@ echo "  export AWS_SECRET_ACCESS_KEY=\"your-secret-key\""
 echo "  export AWS_REGION=\"us-east-1\""
 echo ""
 
-# Check existing AWS profiles
-if command_exists aws; then
-    echo_info "Existing AWS profiles:"
-    aws configure list-profiles 2>/dev/null || echo "  No profiles found"
-    echo ""
-fi
-
 # Test local setup
 echo_info "Testing local setup..."
 
 echo_info "You can now test the application locally:"
-echo "1. Edit .env file with your Twilio credentials"
+echo "1. Edit the .env file with your Twilio and AWS credentials"
 echo "2. Run: ./dev.sh"
 echo "3. Test: curl http://localhost:8000/"
 echo ""
@@ -143,6 +142,6 @@ echo "2. Edit .env with your Twilio credentials"
 echo "3. Run: ./deployment/deploy.sh"
 echo ""
 
-echo_success "🎉 Setup completed! Please configure your credentials in .env file."
+echo_success "🎉 Setup completed! Please configure your credentials in the .env file."
 echo ""
 echo "📚 For detailed instructions, see README.md"
