@@ -1,0 +1,13 @@
+prompts:
+  welcome_greeting: Hello! I'm your AI assistant. How can I help you today?
+  welcome_error: I'm sorry, there was an error starting the conversation. Please try again later.
+  error: I'm sorry, a problem occurred while handling your call. Please try your call again.
+  idle: I'm still here, let me know when you are ready to continue.
+  idle_timeout: I'm sorry, I haven't heard you respond in a while. Please try your call again.
+
+settings:
+  transcription_provider: Deepgram
+  speech_model: nova-3-general
+  tts_provider: ElevenLabs
+  tts_voice: lxYfHSkYm1EzQzGhdbfc
+  fallback_tts: Google.en-US-Chirp3-HD-Aoede

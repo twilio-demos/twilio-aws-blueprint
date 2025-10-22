@@ -3,8 +3,9 @@ import json
 from fastapi import APIRouter, HTTPException, Request, Response
 
 from src.services.sessionservice import instance as session_service
-from src.utils.env import ERROR_MAX_ATTEMPTS, WELCOME_GREETING
+from src.utils.env import ERROR_MAX_ATTEMPTS
 from src.utils.handoff import handle_handoff
+from src.utils.language import load_language
 from src.utils.logger import get_logger
 from src.utils.twiml import (
     create_error_twiml,
@@ -44,7 +45,10 @@ async def call_twiml(request: Request):
         to_number = params.get("To")
         direction = params.get("Direction")
         language = params.get("language")
-        welcome_greeting = params.get("welcomeGreeting", WELCOME_GREETING)
+        welcome_greeting = params.get(
+            "welcomeGreeting",
+            load_language(language).prompts.welcome_greeting,
+        )
         initial_hints = params.get("initialHints")
         action_url = params.get("actionUrl")
         host = request.headers.get("host")

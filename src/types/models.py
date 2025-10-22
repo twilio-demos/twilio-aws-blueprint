@@ -107,3 +107,24 @@ class Message(BaseModel):
 class StreamChunk(TypedDict):
     type: Literal["content", "agent", "metadata"]
     data: str | dict
+
+
+class LanguagePrompts(BaseModel):
+    welcome_greeting: str = "Hello! This is the default greeting."
+    welcome_error: str = "Hello! This is the default error greeting."
+    error: str = "This is the default error prompt."
+    idle: str = "This is the default idle prompt."
+    idle_timeout: str = "This is the default timeout prompt."
+
+
+class LanguageSettings(BaseModel):
+    transcription_provider: str = "Deepgram"
+    speech_model: str = "nova-3-general"
+    tts_provider: str = "ElevenLabs"
+    tts_voice: str = "lxYfHSkYm1EzQzGhdbfc"
+    fallback_tts: str = "Google.en-US-Chirp3-HD-Aoede"
+
+
+class Language(BaseModel):
+    prompts: LanguagePrompts = LanguagePrompts()
+    settings: LanguageSettings = LanguageSettings()

@@ -3,19 +3,10 @@ from typing import Optional
 from twilio.twiml.voice_response import VoiceResponse
 
 from src.utils.env import (
-    ERROR_PROMPT,
-    FALLBACK_TTS,
-    IDLE_TIMEOUT_PROMPT,
     INITIAL_HINTS,
     LANGUAGE,
-    SPEECH_MODEL,
-    SPLIT_CHAR,
-    TRANSCRIPTION_PROVIDER,
-    TTS_PROVIDER,
-    TTS_VOICE,
-    WELCOME_ERROR_PROMPT,
-    get_for_language,
 )
+from src.utils.language import list_languages, load_language
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -39,8 +30,10 @@ def create_initial_twiml(
     connect_action_url = action_url or f"https://{host}/call/action"
     connect = response.connect(action=connect_action_url)
 
-    custom_lang = (language or LANGUAGE).split(SPLIT_CHAR)[0]
-    custom_hints = get_for_language(hints or INITIAL_HINTS, custom_lang)
+    custom_lang = language or LANGUAGE
+    custom_hints = hints or INITIAL_HINTS
+
+    lang_settings = load_language(custom_lang)
 
     conversation_relay = connect.conversation_relay(
         url=websocket_url,
@@ -49,26 +42,25 @@ def create_initial_twiml(
         welcome_greeting=welcome_greeting or "",
         transcription_language=custom_lang,
         tts_language=custom_lang,
-        tts_provider=get_for_language(TTS_PROVIDER, custom_lang),
-        voice=get_for_language(TTS_VOICE, custom_lang),
-        transcription_provider=get_for_language(TRANSCRIPTION_PROVIDER, custom_lang),
-        speech_model=get_for_language(SPEECH_MODEL, custom_lang),
+        tts_provider=lang_settings.settings.tts_provider,
+        voice=lang_settings.settings.tts_voice,
+        transcription_provider=lang_settings.settings.transcription_provider,
+        speech_model=lang_settings.settings.speech_model,
         hints=custom_hints,
     )
 
-    env_languages = LANGUAGE.split(SPLIT_CHAR)
-    if len(env_languages) > 1:
-        for index in range(len(env_languages)):
-            lang = env_languages[index]
-            if lang == "multi":
-                continue
-            conversation_relay.language(
-                lang,
-                get_for_language(TTS_PROVIDER, lang),
-                get_for_language(TTS_VOICE, lang),
-                get_for_language(TRANSCRIPTION_PROVIDER, lang),
-                get_for_language(SPEECH_MODEL, lang),
-            )
+    languages = list_languages()
+    for lang_name in languages:
+        if lang_name == "multi":
+            continue
+        settings = load_language(lang_name).settings
+        conversation_relay.language(
+            lang_name,
+            settings.tts_provider,
+            settings.tts_voice,
+            settings.transcription_provider,
+            settings.speech_model,
+        )
 
     # Store initial settings as parameters so that we can receive them in the setup message
     conversation_relay.parameter(
@@ -85,23 +77,32 @@ def create_initial_twiml(
     return str(response)
 
 
-def create_say_hangup_twiml(prompt, language: Optional[str]):
+def create_say_hangup_twiml(prompt: str, voice: str):
     fallback_response = VoiceResponse()
     fallback_response.say(
-        get_for_language(prompt, language),
-        voice=get_for_language(FALLBACK_TTS, language),
+        prompt,
+        voice=voice,
     )
     fallback_response.hangup()
     return str(fallback_response)
 
 
 def create_fallback_twiml(language: Optional[str]):
-    return create_say_hangup_twiml(WELCOME_ERROR_PROMPT, language)
+    lang_settings = load_language(language)
+    return create_say_hangup_twiml(
+        lang_settings.prompts.welcome_error, lang_settings.settings.fallback_tts
+    )
 
 
 def create_idle_twiml(language: Optional[str]):
-    return create_say_hangup_twiml(IDLE_TIMEOUT_PROMPT, language)
+    lang_settings = load_language(language)
+    return create_say_hangup_twiml(
+        lang_settings.prompts.idle_timeout, lang_settings.settings.fallback_tts
+    )
 
 
 def create_error_twiml(language: Optional[str]):
-    return create_say_hangup_twiml(ERROR_PROMPT, language)
+    lang_settings = load_language(language)
+    return create_say_hangup_twiml(
+        lang_settings.prompts.error, lang_settings.settings.fallback_tts
+    )
