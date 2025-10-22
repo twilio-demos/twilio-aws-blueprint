@@ -10,7 +10,6 @@ from src.utils.env import (
     IDLE_TIMEOUT,
     INITIAL_HINTS,
     LANGUAGE,
-    SPLIT_CHAR,
 )
 from src.utils.logger import get_logger
 
@@ -41,8 +40,8 @@ class SessionIdleConfig(BaseModel):
 class SessionConfig(BaseModel):
     DTMF: SessionDTMFConfig = SessionDTMFConfig()
     Idle: SessionIdleConfig = SessionIdleConfig()
-    Hints: str = INITIAL_HINTS.split(SPLIT_CHAR)[0]
-    Lang: str = LANGUAGE.split(SPLIT_CHAR)[0]
+    Hints: str = INITIAL_HINTS
+    Lang: str = LANGUAGE
 
 
 class Session(BaseModel):

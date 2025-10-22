@@ -15,8 +15,6 @@ def get_env_var(key: str, default=None, required=False):
     return value
 
 
-SPLIT_CHAR = "|"
-
 # Application settings
 ENVIRONMENT = get_env_var("ENVIRONMENT", "development")
 PORT = int(os.getenv("PORT", 8000))
