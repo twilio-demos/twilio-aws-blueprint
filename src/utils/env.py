@@ -93,3 +93,24 @@ AWS_REGION = get_env_var("AWS_REGION", "us-east-1")
 AWS_ACCESS_KEY_ID = get_env_var("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = get_env_var("AWS_SECRET_ACCESS_KEY")
 AWS_PROFILE = get_env_var("AWS_PROFILE", "default")
+
+# AWS Bedrock Configuration
+BEDROCK_REGION = os.getenv("BEDROCK_REGION", "us-east-2")
+BEDROCK_MODEL = os.getenv(
+    "BEDROCK_MODEL", "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+)
+BEDROCK_TEMPERATURE = float(os.getenv("BEDROCK_TEMPERATURE", "0"))
+BEDROCK_MAX_TOKENS = int(os.getenv("BEDROCK_MAX_TOKENS", "4000"))
+
+# AWS Bedrock Guardrail Configuration
+BEDROCK_GUARDRAIL_ID = os.getenv("BEDROCK_GUARDRAIL_ID")
+BEDROCK_GUARDRAIL_VERSION = os.getenv("BEDROCK_GUARDRAIL_VERSION", "DRAFT")
+BEDROCK_GUARDRAIL_TRACE = os.getenv("BEDROCK_GUARDRAIL_TRACE", "enabled")
+BEDROCK_GUARD_LAST_TURN_ONLY = (
+    os.getenv("BEDROCK_GUARD_LAST_TURN_ONLY", "true").lower() == "true"
+)
+
+# AWS Bedrock Knowledge Base Configuration
+BEDROCK_KB_ID = os.getenv("BEDROCK_KB_ID")
+BEDROCK_RETRIEVAL_RESULTS = int(os.getenv("BEDROCK_RETRIEVAL_RESULTS", "5"))
+BEDROCK_MIN_SCORE_CONFIDENCE = float(os.getenv("BEDROCK_MIN_SCORE_CONFIDENCE", "0.0"))
