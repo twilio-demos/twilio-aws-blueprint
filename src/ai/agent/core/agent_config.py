@@ -1,6 +1,19 @@
-import os
 import threading
 from typing import Any, Dict, Optional
+
+from src.utils.env import (
+    BEDROCK_GUARD_LAST_TURN_ONLY,
+    BEDROCK_GUARDRAIL_ID,
+    BEDROCK_GUARDRAIL_TRACE,
+    BEDROCK_GUARDRAIL_VERSION,
+    BEDROCK_KB_ID,
+    BEDROCK_MAX_TOKENS,
+    BEDROCK_MIN_SCORE_CONFIDENCE,
+    BEDROCK_MODEL,
+    BEDROCK_REGION,
+    BEDROCK_RETRIEVAL_RESULTS,
+    BEDROCK_TEMPERATURE,
+)
 
 
 class AgentConfig:
@@ -26,30 +39,23 @@ class AgentConfig:
 
     def _load_config(self) -> None:
         """Load configuration from environment variables."""
-        self.region_name = os.getenv("BEDROCK_REGION", "us-east-2")
-        self.model_name = os.getenv(
-            "BEDROCK_MODEL", "us.anthropic.claude-3-5-haiku-20241022-v1:0"
-        )
-        self.temperature = float(os.getenv("BEDROCK_TEMPERATURE", "0"))
-        self.max_tokens = int(os.getenv("BEDROCK_MAX_TOKENS", "4000"))
+        self.region_name = BEDROCK_REGION
+        self.model_name = BEDROCK_MODEL
+        self.temperature = BEDROCK_TEMPERATURE
+        self.max_tokens = BEDROCK_MAX_TOKENS
 
         # Guardrail configuration
-        self.guardrail_id = os.getenv("BEDROCK_GUARDRAIL_ID")
-        self.guardrail_version = os.getenv("BEDROCK_GUARDRAIL_VERSION", "DRAFT")
-        self.guardrail_trace = os.getenv("BEDROCK_GUARDRAIL_TRACE", "enabled")
-        self.guard_last_turn_only = (
-            os.getenv("BEDROCK_GUARD_LAST_TURN_ONLY", "true").lower() == "true"
-        )
+        self.guardrail_id = BEDROCK_GUARDRAIL_ID
+        self.guardrail_version = BEDROCK_GUARDRAIL_VERSION
+        self.guardrail_trace = BEDROCK_GUARDRAIL_TRACE
+        self.guard_last_turn_only = BEDROCK_GUARD_LAST_TURN_ONLY
 
         # Knowledge base and retrieval configuration
-        self.knowledge_base_id = os.getenv("BEDROCK_KB_ID")
-        retrieval_results = int(os.getenv("BEDROCK_RETRIEVAL_RESULTS", "5"))
+        self.knowledge_base_id = BEDROCK_KB_ID
         self.retrieval_config: Dict[str, Any] = {
-            "vectorSearchConfiguration": {"numberOfResults": retrieval_results}
+            "vectorSearchConfiguration": {"numberOfResults": BEDROCK_RETRIEVAL_RESULTS}
         }
-        self.min_score_confidence = float(
-            os.getenv("BEDROCK_MIN_SCORE_CONFIDENCE", "0.0")
-        )
+        self.min_score_confidence = BEDROCK_MIN_SCORE_CONFIDENCE
 
     def reload_config(self) -> None:
         """Reload configuration from environment variables."""
