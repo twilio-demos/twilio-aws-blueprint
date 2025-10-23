@@ -5,6 +5,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
+from langgraph.types import Command
 
 from src.ai.agent.core.agent_config import agent_config
 from src.ai.agent.core.agent_registry import AgentRegistry
@@ -16,27 +17,30 @@ logger = get_logger(__name__)
 
 
 # This node will be shared for exiting all specialized assistants
-def pop_dialog_state(state: AgentState) -> dict:
+def pop_dialog_state(state: AgentState) -> Command:
     """Pop the dialog stack and return to the main assistant.
 
     This lets the full graph explicitly track the dialog flow and delegate control
     to specific sub-graphs.
     """
-    messages = []
+
     last_message = state["messages"][-1]
     tool_calls = getattr(last_message, "tool_calls", None)
     if tool_calls:
         # Note: Doesn't currently handle the edge case where the llm performs parallel tool calls
-        messages.append(
-            ToolMessage(
-                content="Resuming dialog with the host assistant. Please reflect on the past conversation and assist the user as needed.",
-                tool_call_id=tool_calls[0]["id"],
-            )
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        content="Resuming dialog with the supervisor assistant.",
+                        tool_call_id=tool_calls[0]["id"],
+                    )
+                ],
+                "dialog_state": "pop",
+            }
         )
-    return {
-        "dialog_state": "pop",
-        "messages": messages,
-    }
+
+    return Command(update={"dialog_state": "pop"})
 
 
 class AgentGraph:
