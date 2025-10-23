@@ -3,7 +3,7 @@ import json
 from fastapi import APIRouter, HTTPException, Request, Response
 
 from src.services.sessionservice import instance as session_service
-from src.utils.env import ERROR_MAX_ATTEMPTS
+from src.utils.env import ERROR_MAX_ATTEMPTS, TWILIO_CONVERSATIONAL_INTELLIGENCE
 from src.utils.handoff import handle_handoff
 from src.utils.language import load_language
 from src.utils.logger import get_logger
@@ -60,6 +60,7 @@ async def call_twiml(request: Request):
             language,
             welcome_greeting,
             initial_hints,
+            TWILIO_CONVERSATIONAL_INTELLIGENCE or None,
             {},
         )
 
@@ -176,6 +177,7 @@ async def call_action(request: Request):
                         initial_language,
                         "",  # Leave out the welcome message for a seamless experience
                         initial_hints,
+                        TWILIO_CONVERSATIONAL_INTELLIGENCE or None,
                         {
                             "resume_session_id": session_id,
                             "resume_call_sid": call_sid,

@@ -15,6 +15,7 @@ def create_initial_twiml(
     language: Optional[str],
     welcome_greeting: Optional[str],
     hints: Optional[str],
+    intelligenceService: Optional[str],
     params: Optional[dict],
 ):
     # Create TwiML response using Twilio SDK
@@ -43,6 +44,11 @@ def create_initial_twiml(
         transcription_provider=lang_settings.settings.transcription_provider,
         speech_model=lang_settings.settings.speech_model,
         hints=custom_hints,
+        **(
+            {"intelligenceService": intelligenceService}
+            if intelligenceService is not None
+            else {}
+        ),
     )
 
     languages = list_languages()
