@@ -1,5 +1,4 @@
 import asyncio
-import math
 from typing import Awaitable, Callable
 
 from src.types.models import Session
@@ -23,7 +22,7 @@ class IdleMinder:
         if self.timer_handle is not None:
             self.timer_handle.cancel()
 
-    def set_timer(self, additional_time_sec: int = 0):
+    def handle_idle(self):
         self.clear()
 
         timeout = IDLE_TIMEOUT
@@ -32,11 +31,15 @@ class IdleMinder:
 
         loop = asyncio.get_running_loop()
         self.timer_handle = loop.call_later(
-            timeout + additional_time_sec,
+            timeout,
             lambda: asyncio.create_task(self.trigger()),
         )
 
+    def handle_activity(self):
+        self.attempts = 0
+
     async def trigger(self):
+        self.attempts += 1
         logger.info(
             "Triggering idle minder",
             {
@@ -54,16 +57,3 @@ class IdleMinder:
             await self.idle_callback(self.attempts >= max_attempts)
         except Exception as error:
             logger.error("Error in idle callback", {"error": str(error)})
-
-    def handle_activity(self, already_idle: bool = False, response_text: str = ""):
-        if already_idle:
-            self.attempts += 1
-        else:
-            self.attempts = 0
-
-        # To prevent idle detection during a lengthy response, extend the duration based on the response length
-        additional_time_sec = math.ceil(
-            len(response_text.split(" ")) / 2
-        )  # Add one half second per word
-
-        self.set_timer(additional_time_sec)

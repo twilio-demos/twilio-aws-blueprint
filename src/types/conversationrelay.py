@@ -67,9 +67,20 @@ class ErrorMessage(BaseModel):
     description: str
 
 
+class InfoMessage(BaseModel):
+    type: Literal["info"]
+    name: str
+    value: str
+
+
 # Union type for all incoming messages
 IncomingMessage = Union[
-    SetupMessage, PromptMessage, DTMFMessage, InterruptMessage, ErrorMessage
+    SetupMessage,
+    PromptMessage,
+    DTMFMessage,
+    InterruptMessage,
+    ErrorMessage,
+    InfoMessage,
 ]
 
 # Outgoing Message Types to Twilio

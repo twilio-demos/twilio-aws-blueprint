@@ -10,6 +10,7 @@ from src.types.conversationrelay import (
     DTMFMessage,
     EndSessionMessage,
     ErrorMessage,
+    InfoMessage,
     InterruptMessage,
     OutgoingMessage,
     PromptMessage,
@@ -54,7 +55,6 @@ class ConversationRelayHandler:
         await self.send_message(
             response
         )  # TODO: LLM probably needs to know about this.
-        self.idle_minder.handle_activity(True, prompt)
         if self.session is not None:
             self.thread_service.append(self.session, prompt, MessageType.system)
 
@@ -128,10 +128,10 @@ class ConversationRelayHandler:
             self.dtmf_buffer.session = self.session
             self.idle_minder.session = self.session
             if new_session:
-                self.idle_minder.handle_activity(False, greeting)
                 self.thread_service.append(self.session, greeting, MessageType.system)
             elif resume_error:
-                self.idle_minder.handle_activity(False, "")
+                # When resuming after error, there is no agent greeting, so treat it as idle
+                self.idle_minder.handle_idle()
 
         # TODO: Initialize AI agent session
         # TODO: Send welcome message if needed
@@ -148,7 +148,6 @@ class ConversationRelayHandler:
             },
         )
 
-        self.idle_minder.handle_activity()
         if self.session is not None:
             self.thread_service.append(
                 self.session, message.voicePrompt, MessageType.user
@@ -183,7 +182,6 @@ class ConversationRelayHandler:
             # Send last message to indicate end of response
             response = TextTokenMessage(type="text", token="", last=True)
             await self.send_message(response)
-            self.idle_minder.handle_activity(False, full_response)
 
     async def handle_dtmf_message(self, message: DTMFMessage):
         """Handle DTMF digit from caller"""
@@ -213,8 +211,6 @@ class ConversationRelayHandler:
 
         await self.dtmf_buffer.handle_input(message.digit, handle_dtmf_flush)
 
-        self.idle_minder.handle_activity()
-
     async def handle_interrupt_message(self, message: InterruptMessage):
         """Handle caller interruption"""
         logger.info(
@@ -226,10 +222,27 @@ class ConversationRelayHandler:
             },
         )
 
-        self.idle_minder.handle_activity()
-
         # TODO: Stop current AI processing
         # TODO: Handle interruption gracefully
+
+    async def handle_info_message(self, message: InfoMessage):
+        """Handle debug messages from Twilio"""
+        logger.debug(
+            "Received info message",
+            {
+                "sessionId": self.log_session_id(),
+                "name": message.name,
+                "value": message.value,
+            },
+        )
+
+        if message.name == "clientSpeaking" and message.value == "on":
+            self.idle_minder.handle_activity()
+
+        if message.name == "agentSpeaking" and message.value == "off":
+            self.idle_minder.handle_idle()
+        else:
+            self.idle_minder.clear()
 
     async def handle_error_message(self, message: ErrorMessage):
         """Handle error from Twilio"""
@@ -304,6 +317,9 @@ class ConversationRelayHandler:
             elif message_type == "error":
                 message = ErrorMessage(**message_data)
                 await self.handle_error_message(message)
+            elif message_type == "info":
+                message = InfoMessage(**message_data)
+                await self.handle_info_message(message)
             else:
                 logger.warning(
                     "Unknown message type received",
