@@ -70,7 +70,9 @@ A service for Twilio Conversation Relay - built with FastAPI and designed for AW
 
 6. [Configure a phone number](https://console.twilio.com/us1/develop/phone-numbers/manage/incoming) to point to the TwiML app you just created.
 
-7. Dial the configured phone number and chat away.
+7. Enable the **Predictive and Generative AI/ML Features Addendum** in [Twilio Voice Settings](https://console.twilio.com/us1/develop/voice/settings/general?frameUrl=%2Fconsole%2Fvoice%2Fsettings%3Fx-target-region%3Dus1)
+
+8. Dial the configured phone number and chat away.
 
 ## Production Deployment on AWS
 
