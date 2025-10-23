@@ -53,14 +53,17 @@ class SupervisorAgent(BaseAgent):
 
                     {routing_instructions}
 
+                    IMPORTANT: Check the conversation for any tool calls. If you see that the complete_or_escalate_tool was called by a specialist and question was answered
+                    respond with "FINISH" to end the conversation appropriately.
+
                     VOICE CHANNEL GUIDELINES:
                     - Keep responses brief and conversational
                     - Use natural spoken language
                     - Avoid technical jargon or mentioning internal processes
                     - The customer should never know they're being routed between specialists
 
-                    Based on the MOST RECENT exchange, which specialist should handle this?
-                    Respond with ONLY one of: {", ".join(valid_agents)}""",
+                    Based on the MOST RECENT user message AND the conversation context, which specialist should handle this?
+                    Respond with one of: {", ".join(valid_agents)} or "FINISH" to end the conversation.""",
                 ),
                 ("placeholder", "{messages}"),
             ]
@@ -91,6 +94,27 @@ class SupervisorAgent(BaseAgent):
 
         result = self.runnable.invoke(state, config)
 
+        # CHECK IF GUARDRAILS WERE INVOKED
+        if hasattr(result, "response_metadata"):
+            trace = result.response_metadata.get("trace", {})
+            guardrail = trace.get("guardrail", {})
+            if guardrail:
+                input_assessment = guardrail.get("inputAssessment", {})
+                for policy_id, policy_data in input_assessment.items():
+                    content_policy = policy_data.get("contentPolicy", {})
+                    filters = content_policy.get("filters", [])
+                    for filter_item in filters:
+                        if filter_item.get("action") == "BLOCKED":
+                            logger.warning(
+                                "Guardrails blocked input - ending conversation turn",
+                                {
+                                    "filter_type": filter_item.get("type"),
+                                    "confidence": filter_item.get("confidence"),
+                                },
+                            )
+                            # End the turn
+                            return Command(goto=END)
+
         if isinstance(result.content, str):
             content_text = result.content
         elif isinstance(result.content, list):
@@ -104,12 +128,22 @@ class SupervisorAgent(BaseAgent):
 
         next_agent = content_text.strip().lower()
 
+        logger.info(
+            "SupervisorAgent raw next_agent response:", {"next_agent": next_agent}
+        )
+
+        if next_agent == "finish" or next_agent == "__end__":
+            return Command(goto=END)
+
         if next_agent == AgentRegistry.ACCOUNT_AGENT.value and not user_authenticated:
             print("User not authenticated, routing to auth_agent.")
             return Command(
                 goto=AgentRegistry.AUTH_AGENT.value,
                 update={
-                    "dialog_state": dialog_state + [AgentRegistry.AUTH_AGENT.value]
+                    "messages": [
+                        "User needs to be authenticated before they can access the account information."
+                    ],
+                    "dialog_state": dialog_state + [AgentRegistry.AUTH_AGENT.value],
                 },
             )
 
@@ -118,9 +152,6 @@ class SupervisorAgent(BaseAgent):
             next_agent = AgentRegistry.AUTH_AGENT.value
 
         logger.info("SupervisorAgent decided next_agent:", {"next_agent": next_agent})
-
-        if next_agent == "finish":
-            return Command(goto=END)
 
         return Command(
             goto=next_agent,
