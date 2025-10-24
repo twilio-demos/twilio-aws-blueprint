@@ -4,7 +4,6 @@ from fastapi import Request, Response
 from typing_extensions import Optional
 
 from src.types.models import Session
-from src.utils.env import TWILIO_CONVERSATIONAL_INTELLIGENCE
 from src.utils.logger import get_logger
 from src.utils.twiml import create_error_twiml, create_idle_twiml, create_initial_twiml
 
@@ -37,7 +36,6 @@ def handle_handoff(request: Request, session: Optional[Session]):
                     language,
                     handoff_data.get("message"),
                     handoff_data.get("hints"),
-                    TWILIO_CONVERSATIONAL_INTELLIGENCE or None,
                     {"resume_session_id": session_id, "resume_call_sid": call_sid},
                 )
 
