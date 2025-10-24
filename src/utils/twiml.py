@@ -2,7 +2,7 @@ from typing import Optional
 
 from twilio.twiml.voice_response import VoiceResponse
 
-from src.utils.env import LANGUAGE
+from src.utils.env import LANGUAGE, TWILIO_CONVERSATIONAL_INTELLIGENCE
 from src.utils.language import list_languages, load_language
 from src.utils.logger import get_logger
 
@@ -43,6 +43,7 @@ def create_initial_twiml(
         transcription_provider=lang_settings.settings.transcription_provider,
         speech_model=lang_settings.settings.speech_model,
         hints=custom_hints,
+        intelligenceService=TWILIO_CONVERSATIONAL_INTELLIGENCE or None,
     )
 
     languages = list_languages()
