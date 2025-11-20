@@ -28,6 +28,9 @@ TWILIO_ACCOUNT_SID = get_env_var("TWILIO_ACCOUNT_SID", required=True)
 TWILIO_AUTH_TOKEN = get_env_var("TWILIO_AUTH_TOKEN", required=True)
 FORCE_VALIDATION = os.getenv("FORCE_VALIDATION", "false").lower() == "true"
 
+# Twilio Conversational Intelligence
+TWILIO_CONVERSATIONAL_INTELLIGENCE = get_env_var("TWILIO_CONVERSATIONAL_INTELLIGENCE")
+
 # Idle configuration
 IDLE_MAX_ATTEMPTS = int(os.getenv("IDLE_MAX_ATTEMPTS", 3))
 IDLE_TIMEOUT = int(os.getenv("IDLE_TIMEOUT", 20))
