@@ -88,15 +88,23 @@ A service for Twilio Conversation Relay - built with FastAPI and designed for AW
 
 ### Optional Configuration
 
-| Variable             | Description                                                                  | Default |
-| -------------------- | ---------------------------------------------------------------------------- | ------- |
-| `LANGUAGE`           | Default language for recognition and responses.                              | `en-US` |
-| `LOG_LEVEL`          | Logging level                                                                | `INFO`  |
-| `DTMF_MAX_DIGITS`    | Maximum number of digits accepted in DTMF input                              | `10`    |
-| `DTMF_TIMEOUT`       | Timeout (in seconds) for DTMF input                                          | `3`     |
-| `IDLE_MAX_ATTEMPTS`  | Maximum number of idle attempts before action                                | `3`     |
-| `IDLE_TIMEOUT`       | Idle timeout duration in seconds                                             | `20`    |
-| `ERROR_MAX_ATTEMPTS` | Maximum number of error retries                                              | `5`     |
+| Variable             | Description                                     | Default |
+| -------------------- | ----------------------------------------------- | ------- |
+| `LANGUAGE`           | Default language for recognition and responses. | `en-US` |
+| `LOG_LEVEL`          | Logging level                                   | `INFO`  |
+| `DTMF_MAX_DIGITS`    | Maximum number of digits accepted in DTMF input | `10`    |
+| `DTMF_TIMEOUT`       | Timeout (in seconds) for DTMF input             | `3`     |
+| `IDLE_MAX_ATTEMPTS`  | Maximum number of idle attempts before action   | `3`     |
+| `IDLE_TIMEOUT`       | Idle timeout duration in seconds                | `20`    |
+| `ERROR_MAX_ATTEMPTS` | Maximum number of error retries                 | `5`     |
+
+### Twilio Conversational Intelligence Service (Optional)
+
+You can enable Twilio Conversational Intelligence integration to add observability and analytics for AI agent conversations managed by ConversationRelay. This feature provides monitoring, analysis, and insights into agent interactions and performance. For more details, refer to the [Conversational Intelligence and ConversationRelay integration documentation](https://www.twilio.com/docs/conversational-intelligence/conversation-relay-integration).
+
+| Variable                             | Description                                                                            | Default |
+| ------------------------------------ | -------------------------------------------------------------------------------------- | ------- |
+| `TWILIO_CONVERSATIONAL_INTELLIGENCE` | Conversational Intelligence Service SID or unique name for virtual agent observability | None    |
 
 ### Language Configuration
 
