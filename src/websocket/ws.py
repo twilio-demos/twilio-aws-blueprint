@@ -1,6 +1,9 @@
+import json
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from twilio.request_validator import RequestValidator
 
+from src.types.conversationrelay import SetupMessage
 from src.utils.env import (
     ENVIRONMENT,
     EXTERNAL_URL,
@@ -146,7 +149,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
         # Accept the WebSocket connection
         await websocket.accept()
-        handler = ConversationRelayHandler(websocket)
+        handler: ConversationRelayHandler | None = None
 
         logger.info(
             "WebSocket connection established",
@@ -156,27 +159,48 @@ async def websocket_endpoint(websocket: WebSocket):
         try:
             while True:
                 data = await websocket.receive_text()
-                await handler.process_message(data)
+
+                try:
+                    message_data = json.loads(data)
+                    message_type = message_data.get("type")
+                    if message_type == "setup":
+                        message = SetupMessage(**message_data)
+                        handler = ConversationRelayHandler(websocket, message)
+                    elif handler is not None:
+                        await handler.process_message(message_type, message_data)
+
+                except Exception as e:
+                    logger.error(
+                        "Error parsing message",
+                        {
+                            "sessionId": handler.session.SessionId
+                            if handler is not None
+                            else "unknown",
+                            "error": str(e),
+                            "data": data,
+                        },
+                    )
 
         except WebSocketDisconnect:
             logger.info(
                 "WebSocket disconnected",
                 {
                     "sessionId": handler.session.SessionId
-                    if handler.session is not None
+                    if handler is not None
                     else "unknown",
                     "callSid": handler.session.CallSid
-                    if handler.session is not None
+                    if handler is not None
                     else "unknown",
                 },
             )
-            handler.process_disconnect()
+            if handler is not None:
+                handler.process_disconnect()
         except Exception as e:
             logger.error(
                 "WebSocket error",
                 {
                     "sessionId": handler.session.SessionId
-                    if handler.session is not None
+                    if handler is not None
                     else "unknown",
                     "error": str(e),
                 },
