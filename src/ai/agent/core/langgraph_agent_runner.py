@@ -29,7 +29,6 @@ class AIAgentRunner(BaseAgentRunner):
         """
         super().__init__()
         self.agent_graph: AgentGraph = AgentGraph()
-        self._session_data = {}
         self.thread_service = thread_service
         # Ensure config is initialized from parent class
         if not hasattr(self, "config") or self.config is None:
@@ -191,15 +190,3 @@ class AIAgentRunner(BaseAgentRunner):
             return [self.convert_decimals(item) for item in obj]
         else:
             return obj
-
-    def get_session_data(self, key: str, default=None):
-        """Get session-specific data."""
-        return self._session_data.get(key, default)
-
-    def set_session_data(self, key: str, value):
-        """Set session-specific data."""
-        self._session_data[key] = value
-
-    def clear_session_data(self) -> None:
-        """Clear all session-specific data."""
-        self._session_data.clear()
