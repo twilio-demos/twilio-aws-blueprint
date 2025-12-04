@@ -121,7 +121,7 @@ class ConversationRelayHandler:
 
         if new_session:
             self.session = self.session_service.create(
-                call_sid, session_id, hints, language
+                call_sid, session_id, message.from_, message.to, hints, language
             )
 
         if self.session is not None:
