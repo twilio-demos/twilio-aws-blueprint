@@ -23,6 +23,8 @@ class SessionService(DynamoDBService):
         self,
         call_sid: str,
         session_id: str,
+        call_from: Optional[str],
+        call_to: Optional[str],
         hints: Optional[str],
         language: Optional[str],
     ) -> Session:
@@ -32,6 +34,8 @@ class SessionService(DynamoDBService):
             SessionId=session_id,
             ThreadId=str(uuid.uuid4()),
             Created=datetime.now(timezone.utc).isoformat(),
+            CallFrom=call_from,
+            CallTo=call_to,
         )
         if hints is not None:
             session.Config.Hints = hints

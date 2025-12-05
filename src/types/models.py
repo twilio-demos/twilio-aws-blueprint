@@ -49,6 +49,8 @@ class Session(BaseModel):
     ThreadId: str
     SessionStatus: str = "in-progress"
     Created: str
+    CallFrom: Optional[str]
+    CallTo: Optional[str]
     Config: SessionConfig = SessionConfig()
     SessionState: dict[str, str | int | bool] = {}
 

@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Any, Dict, Literal, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Incoming Message Types from Twilio
 
@@ -31,7 +31,7 @@ class SetupMessage(BaseModel):
     accountSid: str
     parentCallSid: str
     callSid: str
-    from_: str | None = None  # Field alias for 'from' keyword
+    from_: str | None = Field(validation_alias="from")  # Field alias for 'from' keyword
     to: str
     forwardedFrom: Optional[str] = None
     callType: CallType
@@ -39,9 +39,6 @@ class SetupMessage(BaseModel):
     direction: Direction
     callStatus: CallStatus
     customParameters: Optional[Dict[str, Any]] = None
-
-    class Config:
-        fields = {"from_": "from"}
 
 
 class PromptMessage(BaseModel):
