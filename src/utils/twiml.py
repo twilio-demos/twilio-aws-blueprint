@@ -43,6 +43,7 @@ def create_initial_twiml(
         transcription_provider=lang_settings.settings.transcription_provider,
         speech_model=lang_settings.settings.speech_model,
         hints=custom_hints,
+        debug="speaker-events",  # This is used for idle detection
         intelligenceService=TWILIO_CONVERSATIONAL_INTELLIGENCE or None,
     )
 
