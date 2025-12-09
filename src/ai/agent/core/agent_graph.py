@@ -9,15 +9,15 @@ from langgraph.types import Command
 
 from src.ai.agent.core.agent_config import agent_config
 from src.ai.agent.core.agent_registry import AgentRegistry
-from src.ai.agent.models.state import AgentState
-from src.ai.agent.tools.complete_or_escalate import complete_or_escalate_tool
+from src.ai.agent.models.state import AIAgentState
+from src.ai.agent.tools import __all__ as all_custom_tools
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
 # This node will be shared for exiting all specialized assistants
-def pop_dialog_state(state: AgentState) -> Command:
+def pop_dialog_state(state: AIAgentState) -> Command:
     """Pop the dialog stack and return to the main assistant.
 
     This lets the full graph explicitly track the dialog flow and delegate control
@@ -79,14 +79,14 @@ class AgentGraph:
                 # Create tool node if agent has tools
                 tools = agent_registry.tools
                 if tools:
-                    # Add complete_or_escalate_tool to all agent tool nodes
-                    all_tools = tools + [complete_or_escalate_tool]
+                    # Add common tools to all agent tool nodes
+                    all_tools = tools + all_custom_tools
                     tool_node_name = agent_registry.tool_node_name
                     if tool_node_name:
                         self.tool_nodes[tool_node_name] = ToolNode(all_tools)
 
     def _build_graph(self) -> CompiledStateGraph:
-        graph = StateGraph(AgentState)  # type: ignore
+        graph = StateGraph(AIAgentState)  # type: ignore
 
         # Add all agent nodes dynamically
         for agent_name, agent_instance in self.agents.items():

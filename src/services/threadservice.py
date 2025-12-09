@@ -6,6 +6,7 @@ from boto3.dynamodb.conditions import Key
 
 from src.types.models import (
     Message,
+    MessageContent,
     MessageType,
     Session,
 )
@@ -29,6 +30,12 @@ class ThreadService(DynamoDBService):
             Sent=datetime.now(timezone.utc).isoformat(),
             Content=content,
             Type=type,
+            RichContent=MessageContent(
+                text=content,
+                tool_calls=[],
+                agent_name=type.value if type is not MessageType.user else None,
+                metadata={},
+            ),
         )
         if session.ThreadId not in self.thread_messages:
             self.get(session)

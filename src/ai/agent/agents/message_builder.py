@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
 from src.types.models import Message, MessageContent, MessageType, ToolCall
 from src.utils.logger import get_logger
@@ -59,6 +59,16 @@ class AgentMessageBuilder:
                 except Exception as e:
                     logger.error(f"Error processing block {block}: {e}")
                     # Continue processing other blocks
+
+    def process_persisted_message(self, message: Message) -> None:
+        if message.RichContent is None:
+            self.text_parts = [message.Content]
+            return
+
+        self.text_parts = [message.RichContent.text]
+        self.tool_calls = message.RichContent.tool_calls
+        self.agent_name = message.RichContent.agent_name
+        self.metadata = message.RichContent.metadata
 
     def _process_text_block(self, block: dict) -> None:
         """Process a text block (may be streaming)."""
@@ -224,49 +234,6 @@ class AgentMessageBuilder:
         """Add metadata to the message."""
         self.metadata[key] = value
 
-    def process_tool_message(self, tool_message) -> None:
-        """
-        Process a tool result message and update the corresponding tool call.
-
-        Args:
-            tool_message: The ToolMessage containing the result
-        """
-        tool_call_id = getattr(tool_message, "tool_call_id", None)
-        content = tool_message.content
-
-        # Convert content to string if it's not already
-        content_str = ""
-        if isinstance(content, str):
-            content_str = content
-        elif isinstance(content, list):
-            # Join list elements into a string
-            content_str = " ".join(str(item) for item in content)
-        else:
-            content_str = str(content)
-
-        # Find the matching tool call and update its result
-        for tool_call in self.tool_calls:
-            if tool_call.id == tool_call_id:
-                tool_call.result = content_str
-                logger.info(f"Updated tool call {tool_call_id} with result")
-                break
-        else:
-            # If no matching tool call found, create a new one
-            logger.warning(f"No matching tool call found for result {tool_call_id}")
-            # Ensure we have a valid tool_call_id
-            if not tool_call_id:
-                tool_call_id = str(uuid.uuid4())
-                logger.warning(f"Generated new tool call ID: {tool_call_id}")
-
-            self.add_tool_call(
-                ToolCall(
-                    id=tool_call_id,
-                    name="unknown_tool",
-                    arguments={},
-                    result=content_str,
-                )
-            )
-
     def build(self) -> Message:
         """
         Build the complete Message object.
@@ -297,6 +264,43 @@ class AgentMessageBuilder:
 
         return message
 
+    def _build_ai_message(self) -> AIMessage:
+        content = []
+        index = 0
+
+        for text_block in self.text_parts:
+            content.append({"type": "text", "text": text_block, "index": index})
+            index += 1
+
+        # TODO: For some reason loading these causes errors
+        """
+        for tool_block in self.tool_calls:
+            content.append(
+                {
+                    "type": "tool_use",
+                    "id": tool_block.id,
+                    "name": tool_block.name,
+                    "input": json.dumps(tool_block.arguments),
+                    "index": index,
+                }
+            )
+            index += 1
+        """
+
+        return AIMessage(content=content)
+
+    def _build_human_message(self) -> HumanMessage:
+        return HumanMessage(
+            content=self.text_parts[0] if len(self.text_parts) > 0 else ""
+        )
+
+    def build_langchain_message(self) -> BaseMessage:
+        return (
+            self._build_human_message()
+            if self.agent_name is None
+            else self._build_ai_message()
+        )
+
     def has_content(self) -> bool:
         """Check if the builder has any content to build."""
         return bool(self.text_parts or self.tool_calls)
@@ -307,26 +311,3 @@ class AgentMessageBuilder:
         self.tool_calls.clear()
         self.agent_name = None
         self.metadata.clear()
-
-
-def create_user_message(thread_id: str, content: str) -> Message:
-    """
-    Create a simple user message.
-
-    Args:
-        thread_id: The thread ID
-        content: The user's message content
-
-    Returns:
-        Message: The constructed user message
-    """
-    return Message(
-        ThreadId=thread_id,
-        MessageId=str(uuid.uuid4()),
-        Sent=datetime.now(timezone.utc).isoformat(),
-        Content=content,
-        Type=MessageType.user,
-        RichContent=MessageContent(
-            text=content, tool_calls=[], agent_name=None, metadata={}
-        ),
-    )

@@ -1,5 +1,5 @@
 import json
-from typing import Any, List
+from typing import Any
 
 from fastapi import WebSocket
 from typing_extensions import Tuple
@@ -36,8 +36,13 @@ class ConversationRelayHandler:
         self.websocket = websocket
         self.session_service = session_service
         self.thread_service = thread_service
-        self.agent_runner = AgentRunnerFactory.create_runner("langgraph")
         (self.session, is_resume) = self.setup_session(message)
+        self.agent_runner = AgentRunnerFactory.create_runner(
+            "langgraph",
+            self.session,
+            self.update_language,
+            self.perform_handoff,
+        )
         self.dtmf_buffer = DtmfBuffer(self.session)
         self.idle_minder = IdleMinder(self.session, self.handle_idle)
 
@@ -110,16 +115,16 @@ class ConversationRelayHandler:
                         "hadError": resume_error,
                     },
                 )
-                return (
-                    self.session_service.restore(
-                        session_id,
-                        hints,
-                        language,
-                        old_session,
-                        resume_error,
-                    ),
-                    is_resume,
+                session = self.session_service.restore(
+                    session_id,
+                    hints,
+                    language,
+                    old_session,
+                    resume_error,
                 )
+                if len(greeting) > 0:
+                    self.thread_service.append(session, greeting, MessageType.system)
+                return (session, is_resume)
 
         session = self.session_service.create(
             call_sid, session_id, message.from_, message.to, hints, language
@@ -129,9 +134,7 @@ class ConversationRelayHandler:
 
     async def handle_input(self, prompt: str) -> str:
         full_response = ""
-        async for chunk in self.agent_runner.stream_request(
-            prompt, self.session.ThreadId
-        ):
+        async for chunk in self.agent_runner.stream_request(prompt):
             logger.debug("Stream chunk:", {"chunk": chunk})
             if chunk["type"] == "content":
                 response_token = str(chunk["data"])
@@ -244,16 +247,10 @@ class ConversationRelayHandler:
         # TODO: Handle error appropriately
         # TODO: Maybe send fallback response
 
-    async def update_hints(self, hints: List[str], prompt: str):
+    async def perform_handoff(self, handoff_data: Any):
         newResponse = EndSessionMessage(
             type="end",
-            handoffData=json.dumps(
-                {
-                    "result": "hint",
-                    "message": prompt,
-                    "hints": ",".join(hints) if len(hints) > 0 else "",
-                }
-            ),
+            handoffData=json.dumps(handoff_data),
         )
         await self.send_message(newResponse)
 
@@ -263,6 +260,9 @@ class ConversationRelayHandler:
         )
         await self.send_message(newResponse)
         session_service.update_language(self.session, language)
+        # Send last message so that future LLM responses immediately use the new language
+        response = TextTokenMessage(type="text", token="", last=True)
+        await self.send_message(response)
 
     async def send_message(self, message: OutgoingMessage):
         """Send message to Twilio"""

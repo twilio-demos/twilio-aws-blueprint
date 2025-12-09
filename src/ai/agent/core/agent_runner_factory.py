@@ -1,18 +1,29 @@
 """Factory for creating different types of agent runners."""
 
+from typing import Awaitable, Callable
+
 from src.ai.agent.core.base_agent_runner import BaseAgentRunner
+from src.types.models import Session
 
 
 class AgentRunnerFactory:
     """Factory for creating different types of agent runners."""
 
     @staticmethod
-    def create_runner(runner_type: str = "langgraph") -> BaseAgentRunner:
+    def create_runner(
+        runner_type: str,
+        session: Session,
+        update_language_handler: Callable[[str], Awaitable[None]],
+        perform_handoff_handler: Callable[[any], Awaitable[None]],
+    ) -> BaseAgentRunner:
         """
         Create an agent runner of the specified type.
 
         Args:
             runner_type: Type of runner to create ("langgraph" or "simple")
+            session: Initialized user session
+            update_language_handler: ConversationRelay handler for changing language
+            perform_handoff_handler: ConversationRelay handler for performing handoff
 
         Returns:
             BaseAgentRunner instance
@@ -25,13 +36,17 @@ class AgentRunnerFactory:
         if runner_type == "langgraph":
             from src.ai.agent.core.langgraph_agent_runner import AIAgentRunner
 
-            return AIAgentRunner()
+            return AIAgentRunner(
+                session,
+                update_language_handler,
+                perform_handoff_handler,
+            )
         elif runner_type == "simple":
             from src.ai.agent.core.example_agent_runner import (
                 SimpleEchoAgentRunner,
             )
 
-            return SimpleEchoAgentRunner()
+            return SimpleEchoAgentRunner(session)
         else:
             raise ValueError(
                 f"Unknown runner type: {runner_type}. Supported types: 'langgraph', 'simple'"

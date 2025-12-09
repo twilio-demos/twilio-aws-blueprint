@@ -1,17 +1,17 @@
 """Main AI Agent Runner implementation."""
 
-import uuid
+import json
 from decimal import Decimal
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Awaitable, Callable
 
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 
+from src.ai.agent.agents.message_builder import AgentMessageBuilder
 from src.ai.agent.core.agent_graph import AgentGraph
 from src.ai.agent.core.agent_registry import AgentRegistry
 from src.ai.agent.core.base_agent_runner import BaseAgentRunner
-from src.services.threadservice import instance as thread_service
-from src.types.models import StreamChunk
+from src.types.models import Message, Session, StreamChunk
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -23,16 +23,25 @@ CONTENT_PREVIEW_LENGTH = 200
 class AIAgentRunner(BaseAgentRunner):
     """LangGraph-based AI Agent Runner that coordinates all agents and handles user interactions."""
 
-    def __init__(self):
+    def __init__(
+        self,
+        session: Session,
+        update_language_handler: Callable[[str], Awaitable[None]],
+        perform_handoff_handler: Callable[[any], Awaitable[None]],
+    ):
         """
         Initialize the AI Agent Runner.
+
+        Args:
+            session: Initialized user session
+            update_language_handler: ConversationRelay handler for changing language
+            perform_handoff_handler: ConversationRelay handler for performing handoff
         """
-        super().__init__()
+        super().__init__(session)
         self.agent_graph: AgentGraph = AgentGraph()
-        self.thread_service = thread_service
-        # Ensure config is initialized from parent class
-        if not hasattr(self, "config") or self.config is None:
-            self.config = RunnableConfig(configurable={"thread_id": str(uuid.uuid4())})
+        self.update_language_handler = update_language_handler
+        self.perform_handoff_handler = perform_handoff_handler
+        self.config = RunnableConfig(configurable={"thread_id": self.thread_id})
         self.initialize_agent_system()
 
     def initialize_agent_system(self) -> None:
@@ -53,15 +62,19 @@ class AIAgentRunner(BaseAgentRunner):
             "kb_enabled": self.agent_graph.kb_enabled,
         }
 
+    def map_persisted_message(self, message: Message) -> BaseMessage:
+        message_builder = AgentMessageBuilder(self.thread_id)
+        message_builder.process_persisted_message(message)
+        return message_builder.build_langchain_message()
+
     async def stream_request(
-        self, user_input: str, thread_id: str | None
+        self, user_input: str
     ) -> AsyncGenerator[StreamChunk, None]:
         """
         Process a user request with streaming responses.
 
         Args:
             user_input: User's input text
-            thread_id: Optional thread ID for conversation tracking
 
         Yields:
             Streaming response chunks
@@ -69,17 +82,23 @@ class AIAgentRunner(BaseAgentRunner):
         logger.info("Streaming request:", {"user_input": user_input})
         logger.info("=" * 60)
 
-        # Update config with the provided thread_id so agents use the same thread_id
-        if thread_id is not None:
-            self.config = RunnableConfig(configurable={"thread_id": thread_id})
-            logger.info(f"Updated agent config to use thread_id: {thread_id}")
-
         try:
             if not self.agent_graph.graph.get_state(self.config).values:
                 logger.info("Initializing agent state with defaults")
                 self.agent_graph.graph.update_state(
                     self.config,
-                    {"messages": [], "user_authenticated": False, "username": None},
+                    {
+                        "session_id": self.session.SessionId,
+                        "call_sid": self.session.CallSid,
+                        "messages": list(
+                            map(self.map_persisted_message, self.state["messages"])
+                        ),
+                        "dialog_state": self.state["dialog_state"],
+                        "user_authenticated": self.session.SessionState.get(
+                            "user_authenticated", False
+                        ),
+                        "username": self.session.SessionState.get("username", None),
+                    },
                 )
 
             for msg, metadata in self.agent_graph.graph.stream(
@@ -153,8 +172,19 @@ class AIAgentRunner(BaseAgentRunner):
                                         yield {"type": "content", "data": text}
 
                 elif isinstance(msg, ToolMessage):
-                    # Log the tool result
-                    logger.info(f"[Tool Result] {msg.content}")
+                    logger.info(f"[Tool Result] {msg.content}", {"msg": msg})
+                    if msg.name == "update_language_tool" and isinstance(
+                        msg.content, str
+                    ):
+                        # Invoke ConversationRelay handler for update_language
+                        await self.update_language_handler(msg.content)
+                    elif (
+                        msg.name == "perform_handoff_tool"
+                        or msg.name == "update_hints_tool"
+                    ) and isinstance(msg.content, str):
+                        # Invoke ConversationRelay handler for perform_handoff
+                        handoff_data = json.loads(msg.content)
+                        await self.perform_handoff_handler(handoff_data)
 
             logger.info("🔍 Stream completed")
 

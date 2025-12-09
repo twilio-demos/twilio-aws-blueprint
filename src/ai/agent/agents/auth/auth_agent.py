@@ -9,6 +9,7 @@ from src.ai.agent.agents.auth.auth_tools import authenticate_user
 from src.ai.agent.agents.base_agent import BaseAgent
 from src.ai.agent.core.bedrock_client import BedrockClientFactory
 from src.ai.agent.tools.complete_or_escalate import complete_or_escalate_tool
+from src.ai.agent.tools.update_language import update_language_tool
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -33,6 +34,14 @@ class AuthAgent(BaseAgent):
                     - Authentication successful: cancel=True, reason="Authentication completed successfully"
                     - Authentication failed after multiple attempts: cancel=True, reason="Authentication failed after verification"
                     - Non-authentication query: cancel=True, reason="Escalating to supervisor - query outside authentication scope"
+                    
+                    When to use update_language_tool:
+                    - When the user asks to use Spanish, call the tool with: language=es-US
+                    - When the user asks to use Portuguese, call the tool with: language=pt-BR
+                    - Do not bother telling the user that you are switching languages, just do it.
+                    - After this tool is used, ask the user how you may help them.
+                    - After this tool is used, stop responding in English unless asked to. Only respond in the requested language.
+                    - Only use this tool for Spanish or Portuguese. You cannot handle other languages.
 
                     If user asks about anything else (not related to authentication):
                     - Do NOT answer or redirect to authentication
@@ -61,7 +70,11 @@ class AuthAgent(BaseAgent):
 
         llm = BedrockClientFactory.get_latency_optimized_llm_with_guardrails()
 
-        tools = [authenticate_user, complete_or_escalate_tool]
+        tools = [
+            authenticate_user,
+            complete_or_escalate_tool,
+            update_language_tool,
+        ]
 
         runnable = auth_prompt | llm.bind_tools(tools)
         super().__init__(runnable, tools, agent_name)

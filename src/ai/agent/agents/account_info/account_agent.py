@@ -9,6 +9,7 @@ from src.ai.agent.agents.account_info.account_tools import account_balance, acco
 from src.ai.agent.agents.base_agent import BaseAgent
 from src.ai.agent.core.bedrock_client import BedrockClientFactory
 from src.ai.agent.tools.complete_or_escalate import complete_or_escalate_tool
+from src.ai.agent.tools.update_hints import update_hints_tool
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -51,6 +52,10 @@ class AccountAgent(BaseAgent):
                         - User's account question is fully answered: cancel=True, reason="Account inquiry completed"
                         - User asks about general banking info that you cannot answer: cancel=True, reason="User needs general banking information"
                         - User asks about non-account topics: cancel=True, reason="Escalating to supervisor - query outside account scope"
+                        
+                        When to use update_hints_tool:
+                        - Whenever you are asking the user to specify an item from a list. For example, when prompting the user for the type of account: hints=["checking", "savings", "credit card"], prompt="You have three accounts: checking, savings, and credit card. Which would you like to check?"
+                        - Note: When using this tool, pass the question to the user in the prompt parameter. Do not actually say the question to the user, as the tool will handle that part.
 
                         If user asks about non-account topics (not related to their account):
                         - Do NOT redirect or answer
@@ -69,7 +74,12 @@ class AccountAgent(BaseAgent):
 
         llm = BedrockClientFactory.get_latency_optimized_llm_with_guardrails()
 
-        tools = [account_info, account_balance, complete_or_escalate_tool]
+        tools = [
+            account_info,
+            account_balance,
+            complete_or_escalate_tool,
+            update_hints_tool,
+        ]
 
         runnable = account_prompt | llm.bind_tools(tools)
         super().__init__(runnable, tools, agent_name)

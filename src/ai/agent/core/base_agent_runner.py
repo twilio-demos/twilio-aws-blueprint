@@ -1,13 +1,11 @@
 """Base abstract class for Agent Runner implementations."""
 
-import uuid
 from abc import ABC, abstractmethod
-from typing import Any, AsyncGenerator, Dict, Optional
+from typing import Any, AsyncGenerator, Dict
 
-from langchain_core.runnables import RunnableConfig
-
-from src.ai.agent.models.state import AgentState
-from src.types.models import StreamChunk
+from src.ai.agent.models.state import BaseAgentState
+from src.services.threadservice import instance as thread_service
+from src.types.models import Session, StreamChunk
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -16,33 +14,26 @@ logger = get_logger(__name__)
 class BaseAgentRunner(ABC):
     """Abstract base class for AI Agent Runners that coordinate agents and handle user interactions."""
 
-    def __init__(self, config: Optional[RunnableConfig] = None):
+    def __init__(self, session: Session):
         """
         Initialize the Base Agent Runner.
 
         Args:
-            config: System configuration. If None, creates default config.
+            session: Initialized user session
         """
-        self.config = config or RunnableConfig(
-            configurable={"thread_id": str(uuid.uuid4())}
-        )
-        self.state: AgentState = {
-            "messages": [],
-            "user_authenticated": False,
-            "username": None,
+        self.session = session
+        self.state: BaseAgentState = {
+            "messages": thread_service.get(self.session),
             "dialog_state": [],
         }
 
     @abstractmethod
-    def stream_request(
-        self, user_input: str, thread_id: str | None
-    ) -> AsyncGenerator[StreamChunk, None]:
+    def stream_request(self, user_input: str) -> AsyncGenerator[StreamChunk, None]:
         """
         Process a user request with streaming responses.
 
         Args:
             user_input: User's input text
-            thread_id: Optional thread ID for conversation tracking
 
         Yields:
             Streaming response chunks
@@ -71,21 +62,7 @@ class BaseAgentRunner(ABC):
         """
         pass
 
-    def update_thread_config(self, thread_id: str) -> None:
-        """
-        Update the runner configuration with a new thread ID.
-
-        Args:
-            thread_id: The thread ID to use for agent interactions
-        """
-        self.config = RunnableConfig(configurable={"thread_id": thread_id})
-        logger.info(f"Updated agent config to use thread_id: {thread_id}")
-
     @property
-    def thread_id(self) -> Optional[str]:
+    def thread_id(self) -> str:
         """Get the current thread ID from config."""
-        return (
-            self.config.get("configurable", {}).get("thread_id")
-            if self.config
-            else None
-        )
+        return self.session.ThreadId

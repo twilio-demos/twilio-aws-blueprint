@@ -6,9 +6,7 @@ State definitions for the multi-agent system.
 import operator
 from typing import Annotated, Optional, Sequence, TypedDict
 
-from langchain_core.messages import BaseMessage
-
-from src.ai.agent.core.agent_registry import AgentRegistry
+from src.types.models import Message
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -81,20 +79,17 @@ def dialog_stack_reducer(current_stack: list[str], operation) -> list[str]:
     return current_stack
 
 
-class AgentState(TypedDict):
+class BaseAgentState(TypedDict):
     """State shared between all agents in the system."""
 
-    messages: Annotated[Sequence[BaseMessage], operator.add]
-    user_authenticated: bool  # whether the user is authenticated
-    username: Optional[str]
+    session_id: str
+    call_sid: str
+    messages: Annotated[Sequence[Message], operator.add]
     dialog_state: Annotated[list[str], dialog_stack_reducer]
 
 
-def default_agent_state() -> AgentState:
-    """Returns a default-initialized AgentState."""
-    return {
-        "messages": [],
-        "user_authenticated": False,
-        "username": None,
-        "dialog_state": [AgentRegistry.SUPERVISOR.value],
-    }
+class AIAgentState(BaseAgentState):
+    """State shared between all agents in the system."""
+
+    user_authenticated: bool  # whether the user is authenticated
+    username: Optional[str]
