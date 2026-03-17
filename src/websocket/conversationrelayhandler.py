@@ -20,6 +20,7 @@ from src.types.conversationrelay import (
     TextTokenMessage,
 )
 from src.types.models import MessageType, Session
+from src.utils.env import AGENT_RUNNER_TYPE
 from src.utils.language import load_language
 from src.utils.logger import get_logger
 
@@ -38,11 +39,12 @@ class ConversationRelayHandler:
         self.thread_service = thread_service
         (self.session, is_resume) = self.setup_session(message)
         self.agent_runner = AgentRunnerFactory.create_runner(
-            "langgraph",
+            AGENT_RUNNER_TYPE,
             self.session,
             self.update_language,
             self.perform_handoff,
         )
+        logger.info(f"Using agent runner type: {AGENT_RUNNER_TYPE}")
         self.dtmf_buffer = DtmfBuffer(self.session)
         self.idle_minder = IdleMinder(self.session, self.handle_idle)
 

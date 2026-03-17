@@ -41,6 +41,14 @@ class AgentRunnerFactory:
                 update_language_handler,
                 perform_handoff_handler,
             )
+        elif runner_type == "strands":
+            from src.ai.agent.core.strands_agent_runner import StrandsAgentRunner
+
+            return StrandsAgentRunner(
+                session,
+                update_language_handler,
+                perform_handoff_handler,
+            )
         elif runner_type == "simple":
             from src.ai.agent.core.example_agent_runner import (
                 SimpleEchoAgentRunner,
@@ -49,7 +57,7 @@ class AgentRunnerFactory:
             return SimpleEchoAgentRunner(session)
         else:
             raise ValueError(
-                f"Unknown runner type: {runner_type}. Supported types: 'langgraph', 'simple'"
+                f"Unknown runner type: {runner_type}. Supported types: 'langgraph', 'strands', 'simple'"
             )
 
     @staticmethod
@@ -60,7 +68,7 @@ class AgentRunnerFactory:
         Returns:
             List of supported runner type names
         """
-        return ["langgraph", "simple"]
+        return ["langgraph", "strands", "simple"]
 
     @staticmethod
     def get_runner_info(runner_type: str) -> dict[str, str]:
@@ -84,6 +92,12 @@ class AgentRunnerFactory:
                 "description": "Full-featured agent system using LangGraph with multi-agent orchestration",
                 "class": "AIAgentRunner",
                 "features": "Complex routing, tool integration, state management",
+            },
+            "strands": {
+                "name": "Strands Agent Runner",
+                "description": "Strands SDK-based agent with AWS Bedrock integration",
+                "class": "StrandsAgentRunner",
+                "features": "Simple agent flows, direct tool calling, streaming support",
             },
             "simple": {
                 "name": "Simple Echo Runner",

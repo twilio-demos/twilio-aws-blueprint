@@ -47,6 +47,38 @@ Parameters:
     AllowedValues: [development, staging, production]
     Description: Environment name
 
+  AgentRunnerType:
+    Type: String
+    Default: strands
+    AllowedValues: [strands, langgraph, openai]
+    Description: Type of agent runner to use
+
+  BedrockModel:
+    Type: String
+    Default: us.anthropic.claude-haiku-4-5-20251001-v1:0
+    Description: AWS Bedrock model ID
+
+  BedrockRegion:
+    Type: String
+    Default: us-east-2
+    Description: AWS Bedrock region
+
+  BedrockTemperature:
+    Type: Number
+    Default: 0
+    Description: Bedrock model temperature (0-1)
+
+  BedrockMaxTokens:
+    Type: Number
+    Default: 4000
+    Description: Bedrock model max tokens
+
+  ForceValidation:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Force Twilio webhook validation
+
 Resources:
   # VPC and Networking
   VPC:
@@ -392,6 +424,8 @@ Resources:
               Value: !Ref ContainerPort
             - Name: LOG_LEVEL
               Value: info
+            - Name: FORCE_VALIDATION
+              Value: !Ref ForceValidation
             - Name: AWS_REGION
               Value: !Ref AWS::Region
             - Name: EXTERNAL_URL
@@ -406,6 +440,16 @@ Resources:
               Value: !Ref ConversationRelayMessages
             - Name: SESSIONS_TABLE_NAME
               Value: !Ref ConversationRelaySessions
+            - Name: AGENT_RUNNER_TYPE
+              Value: !Ref AgentRunnerType
+            - Name: BEDROCK_MODEL
+              Value: !Ref BedrockModel
+            - Name: BEDROCK_REGION
+              Value: !Ref BedrockRegion
+            - Name: BEDROCK_TEMPERATURE
+              Value: !Ref BedrockTemperature
+            - Name: BEDROCK_MAX_TOKENS
+              Value: !Ref BedrockMaxTokens
           Secrets:
             - Name: TWILIO_ACCOUNT_SID
               ValueFrom: !Ref TwilioAccountSidParameter

@@ -149,7 +149,33 @@ deploy_stack() {
     if [ -n "$ENVIRONMENT" ]; then
         PARAMETERS="$PARAMETERS Environment=$ENVIRONMENT"
     fi
-    
+
+    # Add agent configuration parameters
+    if [ -n "$AGENT_RUNNER_TYPE" ]; then
+        PARAMETERS="$PARAMETERS AgentRunnerType=$AGENT_RUNNER_TYPE"
+        echo_info "Agent runner type: $AGENT_RUNNER_TYPE"
+    fi
+
+    if [ -n "$BEDROCK_MODEL" ]; then
+        PARAMETERS="$PARAMETERS BedrockModel=$BEDROCK_MODEL"
+    fi
+
+    if [ -n "$BEDROCK_REGION" ]; then
+        PARAMETERS="$PARAMETERS BedrockRegion=$BEDROCK_REGION"
+    fi
+
+    if [ -n "$BEDROCK_TEMPERATURE" ]; then
+        PARAMETERS="$PARAMETERS BedrockTemperature=$BEDROCK_TEMPERATURE"
+    fi
+
+    if [ -n "$BEDROCK_MAX_TOKENS" ]; then
+        PARAMETERS="$PARAMETERS BedrockMaxTokens=$BEDROCK_MAX_TOKENS"
+    fi
+
+    if [ -n "$FORCE_VALIDATION" ]; then
+        PARAMETERS="$PARAMETERS ForceValidation=$FORCE_VALIDATION"
+    fi
+
     aws cloudformation deploy \
         --template-file deployment/cloudformation-template.yaml \
         --stack-name $STACK_NAME \
@@ -295,16 +321,34 @@ show_help() {
     echo "  TWILIO_AUTH_TOKEN     Your Twilio Auth Token"
     echo ""
     echo "Environment Variables (optional):"
-    echo "  AWS_REGION           AWS region (default: us-east-1)"
-    echo "  AWS_PROFILE          AWS profile (default: default)"
+    echo "  AWS_REGION              AWS region (default: us-east-1)"
+    echo "  AWS_PROFILE             AWS profile (default: default)"
+    echo "  DOMAIN_NAME             Custom domain (e.g., api.yourdomain.com)"
+    echo "  CERTIFICATE_ARN         ACM certificate ARN for HTTPS"
+    echo "  ENVIRONMENT             Environment name (default: development)"
+    echo "  AGENT_RUNNER_TYPE       Agent type: strands, langgraph, openai (default: strands)"
+    echo "  BEDROCK_MODEL           Bedrock model ID (default: claude-haiku-4-5)"
+    echo "  BEDROCK_REGION          Bedrock region (default: us-east-2)"
+    echo "  BEDROCK_TEMPERATURE     Model temperature 0-1 (default: 0)"
+    echo "  BEDROCK_MAX_TOKENS      Max tokens (default: 4000)"
+    echo "  FORCE_VALIDATION        Twilio validation: true/false (default: false)"
     echo ""
     echo "Options:"
-    echo "  -h, --help           Show this help message"
+    echo "  -h, --help              Show this help message"
     echo ""
-    echo "Example:"
-    echo "  export TWILIO_ACCOUNT_SID=AC..."
-    echo "  export TWILIO_AUTH_TOKEN=..."
-    echo "  ./deploy.sh"
+    echo "Examples:"
+    echo "  Basic deployment:"
+    echo "    export TWILIO_ACCOUNT_SID=AC..."
+    echo "    export TWILIO_AUTH_TOKEN=..."
+    echo "    ./deploy.sh"
+    echo ""
+    echo "  Production with custom domain:"
+    echo "    export TWILIO_ACCOUNT_SID=AC..."
+    echo "    export TWILIO_AUTH_TOKEN=..."
+    echo "    export DOMAIN_NAME=owl-bank.deepakjayanna.net"
+    echo "    export CERTIFICATE_ARN=arn:aws:acm:..."
+    echo "    export AGENT_RUNNER_TYPE=strands"
+    echo "    ./deploy.sh"
 }
 
 # Parse command line arguments

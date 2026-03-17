@@ -1,0 +1,13 @@
+prompts:
+  welcome_greeting: "¡Hola! Soy tu asistente de inteligencia artificial. ¿En qué puedo ayudarte hoy?"
+  welcome_error: "Lo siento, hubo un error al iniciar la conversación. Por favor, inténtalo de nuevo más tarde."
+  error: "Lo siento, ocurrió un problema al manejar tu llamada. Por favor, intenta tu llamada de nuevo."
+  idle: "Aquí sigo, avísame cuando estés listo para continuar."
+  idle_timeout: "Lo siento, no te he escuchado responder en un momento. Por favor, intenta tu llamada de nuevo."
+
+settings:
+  transcription_provider: Deepgram
+  speech_model: nova-3-general
+  tts_provider: ElevenLabs
+  tts_voice: 9F4C8ztpNUmXkdDDbz3J
+  fallback_tts: es-US-Chirp3-HD-Aoede
