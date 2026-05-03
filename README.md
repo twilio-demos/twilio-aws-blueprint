@@ -27,8 +27,8 @@ A service for Twilio Conversation Relay - built with FastAPI and designed for AW
 1. **Clone and setup**:
 
    ```bash
-   git clone https://github.com/twilio-professional-services/twilio-conversation-relay-aws.git
-   cd twilio-conversation-relay-aws
+   git clone https://github.com/twilio-demos/twilio-aws-blueprint.git
+   cd twilio-aws-blueprint
    ./setup.sh
    ```
 
@@ -178,14 +178,52 @@ All Twilio webhooks are validated using request signatures:
 - HTTP webhooks: Automatic validation in middleware
 - WebSocket connections: Signature validation during handshake
 
+## Important Notice
+
+**This is a reference implementation/blueprint provided by the Solution Acceleration Architect team.** It is designed to help you quickly deploy a proof-of-concept (POC) Twilio ConversationRelay voice agent integrated with AWS services.
+
+### Disclaimer
+
+- This code is provided **as-is** without warranties or guarantees of any kind
+- Twilio does **not** provide ongoing maintenance, updates, or support for this blueprint
+- You are responsible for reviewing, testing, modifying, and maintaining the code for your use case
+- Use at your own risk in production environments
+
+### Your Responsibilities
+
+Before deploying to production, you should:
+
+- Review and understand all code and configurations
+- Implement appropriate security measures for your requirements
+- Perform thorough testing with your expected workloads
+- Set up monitoring and alerting
+- Establish your own maintenance and update procedures
+- Ensure compliance with your organization's policies and regulations
+
 ## License
 
-[Add your license information here]
+MIT License
+
+Copyright (c) 2026 Twilio Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ## Support
 
-For issues or questions:
-
-1. Check the troubleshooting section
-2. Review CloudWatch logs
-3. Open an issue in the repository
+This is a community-supported blueprint. Twilio does not provide official support for this code.
