@@ -1,11 +1,14 @@
-# Twilio Conversation Relay Voice Agent
+# Twilio Agent Connect Blueprint
 
-A service for Twilio Conversation Relay - built with FastAPI and designed for AWS deployment. Supports webhooks, WebSocket streaming, and modular AI agent components with more to come...
+A service for Twilio Agent Connect - built with FastAPI and designed for AWS deployment. Supports webhooks, WebSocket streaming, and modular AI agent components with more to come...
 
 ## Features
 
+- **Multi-Channel Support**: Voice calls, SMS, WhatsApp, chat, and other messaging channels via Twilio Agent Connect
+- **Conversation Orchestrator**: Intelligent conversation routing and management across channels
+- **Memory Store Integration**: Persistent user context and conversation history with Twilio Memory
 - **FastAPI Framework**: High-performance async web framework
-- **Twilio Integration**: Complete webhook and WebSocket support for ConversationRelay
+- **Twilio Integration**: Complete webhook and WebSocket support for ConversationRelay and Agent Connect
 - **Security**: Request signature validation for all Twilio endpoints
 - **Containerized**: Docker-based deployment with health checks
 - **AWS Fargate**: Serverless container platform with auto-scaling
@@ -62,6 +65,8 @@ A service for Twilio Conversation Relay - built with FastAPI and designed for AW
 
    (Note: If you already had the app running, you'll need to restart it to pick up the updated values from **.env**!)
 
+### Voice Channel Setup
+
 5. [Create a new TwiML app](https://console.twilio.com/us1/develop/voice/manage/twiml-apps?frameUrl=%2Fconsole%2Fvoice%2Ftwiml%2Fapps%3Fx-target-region%3Dus1) in the Twilio Console with the following settings:
 
    - **Friendly Name**: Enter a name of your choosing.
@@ -73,6 +78,44 @@ A service for Twilio Conversation Relay - built with FastAPI and designed for AW
 7. Enable the **Predictive and Generative AI/ML Features Addendum** in [Twilio Voice Settings](https://console.twilio.com/us1/develop/voice/settings/general?frameUrl=%2Fconsole%2Fvoice%2Fsettings%3Fx-target-region%3Dus1)
 
 8. Dial the configured phone number and chat away.
+
+### SMS, Chat, and Other Channels with Agent Connect
+
+For SMS, WhatsApp, chat, and other messaging channels, you can use Twilio Agent Connect instead of ConversationRelay:
+
+1. Follow steps 1-4 above to set up your local environment
+
+2. [Create an Agent Connect Agent](https://console.twilio.com/us1/develop/conversations/agent-connect/agents) in the Twilio Console:
+   - **Friendly Name**: Enter a name for your agent
+   - **WebSocket URL**: `wss://abc123.ngrok.app/ws`
+     - Replace `https://abc123.ngrok.app` with your **ngrok Forwarding URL**
+
+3. Configure your phone number or messaging service:
+   - For **SMS**: [Configure your phone number](https://console.twilio.com/us1/develop/phone-numbers/manage/incoming) to use the Agent Connect agent
+   - For **WhatsApp**: [Configure your WhatsApp sender](https://console.twilio.com/us1/develop/sms/settings/whatsapp-sender-registration) to use the Agent Connect agent
+   - For **Flex Conversations**: Configure your Flex instance to route to the Agent Connect agent
+
+4. Send a message to your configured channel and start chatting with your AI agent
+
+**Note**: Agent Connect enables the same AI agent logic to work across multiple channels (voice, SMS, WhatsApp, chat, etc.) with a single WebSocket endpoint.
+
+## Conversation Orchestrator & Memory Store
+
+This blueprint integrates with Twilio's Conversation Orchestrator and Memory Store to provide:
+
+- **Persistent Context**: Automatic storage and retrieval of user conversation history
+- **User Profiles**: Access to user preferences, information, and past interactions
+- **Multi-Session Memory**: Conversation context that persists across sessions and channels
+- **Intelligent Routing**: Route conversations based on context, intent, and user history
+
+### How It Works
+
+1. **Memory Retrieval**: When a user initiates a conversation, TAC automatically retrieves relevant memories and user profile
+2. **Context Injection**: User context is automatically injected into your LLM prompts
+3. **Memory Updates**: Conversation history is automatically stored for future interactions
+4. **Cross-Channel Context**: User context persists across voice, SMS, and chat channels
+
+For detailed information about the Twilio Agent Connect (TAC) SDK architecture, setup, and advanced features, see the [TAC Python SDK repository](https://github.com/twilio/twilio-agent-connect-python).
 
 ## Production Deployment on AWS
 
@@ -180,7 +223,7 @@ All Twilio webhooks are validated using request signatures:
 
 ## Important Notice
 
-**This is a reference implementation/blueprint provided by the Solution Acceleration Architect team.** It is designed to help you quickly deploy a proof-of-concept (POC) Twilio ConversationRelay voice agent integrated with AWS services.
+**This is a reference implementation/blueprint provided by the Solution Acceleration Architect team.** It is designed to help you quickly deploy a proof-of-concept (POC) Twilio AI agent using ConversationRelay (for voice) and Agent Connect (for SMS, chat, and other channels) integrated with AWS services.
 
 ### Disclaimer
 

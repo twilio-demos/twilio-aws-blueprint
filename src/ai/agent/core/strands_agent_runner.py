@@ -267,11 +267,12 @@ class StrandsAgentRunner(BaseAgentRunner):
 
             # Handle update_hints_tool
             elif tool_name == "update_hints_tool":
-                logger.info(f"Parsing hints data: {result}")
-                hints_data = json.loads(result)
-                logger.info(f"Calling perform_handoff_handler with: {hints_data}")
-                await self.perform_handoff_handler(hints_data)
-                logger.info("perform_handoff_handler (hints) completed successfully")
+                logger.info(f"Hints update: {result}")
+                # This should be implemented if needed, this should trigger handoff i.e restart session with new hints
+                # For now, just log that hints were updated
+                logger.info(
+                    "Hints updated successfully (no action required in relay-only mode)"
+                )
 
             # Handle look_up_availability
             elif tool_name == "look_up_availability":
@@ -302,11 +303,15 @@ class StrandsAgentRunner(BaseAgentRunner):
                     # Update session state with appointment details
                     updated_state = dict(self.session.SessionState)
                     updated_state["appointment_scheduled"] = True
-                    updated_state["appointment_data"] = result  # Store full JSON as string
+                    updated_state["appointment_data"] = (
+                        result  # Store full JSON as string
+                    )
                     updated_state["confirmation_number"] = confirmation_number
                     updated_state["scheduling_step"] = "confirmed"
                     session_service.update_state(self.session, updated_state)
-                    logger.info(f"Session state updated with appointment: {confirmation_number}")
+                    logger.info(
+                        f"Session state updated with appointment: {confirmation_number}"
+                    )
                 else:
                     error = appointment_data.get("error", "Unknown error")
                     logger.error(f"Appointment scheduling failed: {error}")

@@ -15,3 +15,5 @@ typing-extensions
 pydantic_settings
 pyyaml
 strands-agents
+# TAC SDK for ConversationRelay WebSocket handling
+twilio-agent-connect[server] @ git+https://github.com/twilio/twilio-agent-connect-python.git@main
