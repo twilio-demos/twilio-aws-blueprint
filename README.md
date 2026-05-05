@@ -2,6 +2,8 @@
 
 A service for Twilio Conversation Relay - built with FastAPI and designed for AWS deployment. Supports webhooks, WebSocket streaming, and modular AI agent components with more to come...
 
+> **🚀 Multi-Channel Support Available**: Looking for SMS, WhatsApp, chat, and other messaging channels? Check out the [`twilio-conversations`](https://github.com/twilio-demos/twilio-aws-blueprint/tree/twilio-conversations) branch, which uses the [Twilio Agent Connect (TAC) SDK](https://github.com/twilio/twilio-agent-connect-python) to support multi-channel conversations with Conversation Orchestrator and Memory Store integration.
+
 ## Features
 
 - **FastAPI Framework**: High-performance async web framework
@@ -73,6 +75,34 @@ A service for Twilio Conversation Relay - built with FastAPI and designed for AW
 7. Enable the **Predictive and Generative AI/ML Features Addendum** in [Twilio Voice Settings](https://console.twilio.com/us1/develop/voice/settings/general?frameUrl=%2Fconsole%2Fvoice%2Fsettings%3Fx-target-region%3Dus1)
 
 8. Dial the configured phone number and chat away.
+
+## Multi-Channel Implementation with TAC
+
+The [`twilio-conversations`](https://github.com/twilio-demos/twilio-aws-blueprint/tree/twilio-conversations) branch provides an enhanced implementation using the [Twilio Agent Connect (TAC) SDK](https://github.com/twilio/twilio-agent-connect-python) with the following capabilities:
+
+### Additional Features
+
+- **Multi-Channel Support**: Voice, SMS, WhatsApp, RCS, and chat channels
+- **Conversation Orchestrator**: Intelligent conversation routing and management
+- **Memory Store**: Persistent user context and conversation history across sessions and channels
+- **Cross-Channel Context**: User conversations persist across different communication channels
+- **Simplified Integration**: Built-in channel handling and automatic memory injection into LLM prompts
+
+### When to Use TAC
+
+- **Multi-Channel**: If you need to support SMS, WhatsApp, chat, or multiple channels
+- **Memory & Context**: If you need persistent user context across conversations
+- **Orchestration**: If you need intelligent routing and conversation management
+- **Voice-Only**: The main branch (ConversationRelay-only) is lighter and simpler for voice-only use cases
+
+To get started with the TAC implementation:
+
+```bash
+git checkout twilio-conversations
+./setup.sh
+```
+
+See the [TAC branch README](https://github.com/twilio-demos/twilio-aws-blueprint/tree/twilio-conversations) for detailed setup instructions.
 
 ## Production Deployment on AWS
 
